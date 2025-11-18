@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 )
 
+const ResetColourSequence = "\033[0m" // anything after this will have no custom colouring applied
+
 // TODO: improve this implementation to be a bit more robust
 func ReadKeySequence(reader *bufio.Reader) ([]byte, error) {
 	input, err := reader.ReadByte()
