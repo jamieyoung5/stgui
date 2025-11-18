@@ -1,4 +1,4 @@
-package canvas
+package stgui
 
 type Cursor struct {
 	x, y, gridX, gridY int
