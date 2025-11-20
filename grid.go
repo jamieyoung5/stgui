@@ -123,7 +123,14 @@ func (g *Grid) RenderLines() []string {
 		}
 	}
 
-	output := make([]string, numRows)
+	totalOutputLines := 0
+	if numRows > 0 {
+		totalOutputLines = numRows + (numRows - 1) // Rows + Dividers
+	}
+	output := make([]string, totalOutputLines)
+
+	currentLineIndex := 0
+
 	for r := 0; r < numRows; r++ {
 		for h := 0; h < maxHeights[r]; h++ {
 			var sb strings.Builder
@@ -133,7 +140,8 @@ func (g *Grid) RenderLines() []string {
 					sb.WriteString(vDivider)
 				}
 			}
-			output[r] = sb.String()
+			output[currentLineIndex] = sb.String()
+			currentLineIndex++
 		}
 
 		if r < numRows-1 {
@@ -144,7 +152,8 @@ func (g *Grid) RenderLines() []string {
 					sb.WriteString(hJoin)
 				}
 			}
-			output[r] = sb.String()
+			output[currentLineIndex] = sb.String()
+			currentLineIndex++
 		}
 	}
 
