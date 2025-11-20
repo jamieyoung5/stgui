@@ -38,7 +38,7 @@ func BenchmarkCreateGridCells(b *testing.B) {
 		}
 	}
 
-	var result [][]*Cell
+	var result *Cell
 
 	b.ResetTimer()
 

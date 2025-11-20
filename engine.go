@@ -48,18 +48,18 @@ func (s *Screen) Serialize() string {
 	return builder.String()
 }
 
-type InteractiveCanvas struct {
+type Canvas struct {
 	Screens *gostrc.Stack[*Screen]
 }
 
-func NewInteractiveCanvas(screen *Screen) *InteractiveCanvas {
+func NewCanvas(screen *Screen) *Canvas {
 	screenStack := gostrc.NewStack[*Screen]()
 	screenStack.Push(screen)
 
-	return &InteractiveCanvas{screenStack}
+	return &Canvas{screenStack}
 }
 
-func (ic *InteractiveCanvas) Draw() {
+func (ic *Canvas) Draw() {
 	term.Clear()
 	screen := ic.Screens.Peek()
 
@@ -67,7 +67,7 @@ func (ic *InteractiveCanvas) Draw() {
 	fmt.Println(serializedScreen)
 }
 
-func (ic *InteractiveCanvas) Initiate() {
+func (ic *Canvas) Initiate() {
 	quit := make(chan bool)
 	go render(ic, quit)
 
@@ -82,7 +82,7 @@ func (ic *InteractiveCanvas) Initiate() {
 	quit <- true
 }
 
-func (ic *InteractiveCanvas) listenForInput(reader *bufio.Reader) {
+func (ic *Canvas) listenForInput(reader *bufio.Reader) {
 	for {
 		sequence, err := term.ReadKeySequence(reader)
 		if err != nil {

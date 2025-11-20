@@ -32,7 +32,7 @@ func NewGrid(grid [][]any, symbols *Symbols) (*Grid, error) {
 	}
 
 	return &Grid{
-		Content: cellGrid[0][0],
+		Content: cellGrid,
 		Symbols: symbols,
 	}, nil
 }
@@ -151,7 +151,22 @@ func (g *Grid) RenderLines() []string {
 	return output
 }
 
-func createGridCells(rows int, cols int, grid [][]any) ([][]*Cell, error) {
+func (g *Grid) Refresh(grid [][]any) error {
+	newGrid, err := createGridCells(
+		len(grid),
+		len(grid[0]),
+		grid,
+	)
+	if err != nil {
+		return err
+	}
+
+	g.Content = newGrid
+
+	return nil
+}
+
+func createGridCells(rows int, cols int, grid [][]any) (*Cell, error) {
 
 	cells := make([]Cell, rows*cols)
 	cellGrid := make([][]*Cell, rows)
@@ -190,5 +205,5 @@ func createGridCells(rows int, cols int, grid [][]any) ([][]*Cell, error) {
 		}
 	}
 
-	return cellGrid, nil
+	return cellGrid[0][0], nil
 }

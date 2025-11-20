@@ -7,7 +7,7 @@ import (
 	"github.com/jamieyoung5/stgui/term"
 )
 
-func render(canvas *InteractiveCanvas, quit chan bool) {
+func render(canvas *Canvas, quit chan bool) {
 	screen := canvas.Screens.Peek().Serialize()
 	for {
 		select {
