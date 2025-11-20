@@ -2,6 +2,8 @@ package stgui
 
 import "fmt"
 
+const noValue = "."
+
 type Layout interface {
 	RenderLines() []string
 }
@@ -10,9 +12,8 @@ type Cell struct {
 	Value   any
 	SubGrid Layout
 
-	Right   *Cell
-	Down    *Cell
-	Symbols *Symbols
+	Right *Cell
+	Down  *Cell
 }
 
 func (c *Cell) RenderLines() []string {
@@ -23,5 +24,5 @@ func (c *Cell) RenderLines() []string {
 		return []string{fmt.Sprint(c.Value)}
 	}
 
-	return []string{c.Symbols.NoValue} // empty cell
+	return []string{noValue} // empty cell
 }

@@ -26,7 +26,7 @@ func NewGrid(grid [][]any, symbols *Symbols) (*Grid, error) {
 
 	rows := len(grid)
 	cols := len(grid[0])
-	cellGrid, err := createGridCells(rows, cols, grid, symbols)
+	cellGrid, err := createGridCells(rows, cols, grid)
 	if err != nil {
 		return nil, err
 	}
@@ -123,40 +123,50 @@ func (g *Grid) RenderLines() []string {
 		}
 	}
 
-	output := []string{}
+	output := make([]string, numRows)
 	for r := 0; r < numRows; r++ {
 		for h := 0; h < maxHeights[r]; h++ {
-			line := ""
+			var sb strings.Builder
 			for c := 0; c < numCols; c++ {
-				line += paddedBlocks[r][c][h]
+				sb.WriteString(paddedBlocks[r][c][h])
 				if c < numCols-1 {
-					line += vDivider
+					sb.WriteString(vDivider)
 				}
 			}
-			output = append(output, line)
+			output[r] = sb.String()
 		}
 
 		if r < numRows-1 {
-			divLine := ""
+			var sb strings.Builder
 			for c := 0; c < numCols; c++ {
-				divLine += strings.Repeat(hDivider, maxWidths[c])
+				sb.WriteString(strings.Repeat(hDivider, maxWidths[c]))
 				if c < numCols-1 {
-					divLine += hJoin
+					sb.WriteString(hJoin)
 				}
 			}
-			output = append(output, divLine)
+			output[r] = sb.String()
 		}
 	}
 
 	return output
 }
 
-func createGridCells(rows int, cols int, grid [][]any, symbols *Symbols) ([][]*Cell, error) {
+func createGridCells(rows int, cols int, grid [][]any) ([][]*Cell, error) {
+
+	cells := make([]Cell, rows*cols)
 	cellGrid := make([][]*Cell, rows)
-	for r := 0; r < rows; r++ {
-		cellGrid[r] = make([]*Cell, cols)
-		for c := 0; c < cols; c++ {
-			cell := &Cell{Symbols: symbols}
+	pointers := make([]*Cell, rows*cols)
+
+	for r := range rows {
+		rowStart := r * cols
+		cellGrid[r] = pointers[rowStart : rowStart+cols]
+
+		for c := range cols {
+			index := r*cols + c
+
+			cell := &cells[index]
+
+			cellGrid[r][c] = cell
 
 			element := grid[r][c]
 			if layout, ok := element.(Layout); ok {
@@ -164,13 +174,11 @@ func createGridCells(rows int, cols int, grid [][]any, symbols *Symbols) ([][]*C
 			} else {
 				cell.Value = element
 			}
-
-			cellGrid[r][c] = cell
 		}
 	}
 
-	for r := 0; r < rows; r++ {
-		for c := 0; c < cols; c++ {
+	for r := range rows {
+		for c := range cols {
 			cell := cellGrid[r][c]
 
 			if r < rows-1 {

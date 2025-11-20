@@ -63,7 +63,8 @@ func (ic *InteractiveCanvas) Draw() {
 	term.Clear()
 	screen := ic.Screens.Peek()
 
-	fmt.Printf(screen.Serialize())
+	serializedScreen := screen.Serialize()
+	fmt.Println(serializedScreen)
 }
 
 func (ic *InteractiveCanvas) Initiate() {
