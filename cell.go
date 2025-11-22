@@ -26,3 +26,27 @@ func (c *Cell) RenderLines() []string {
 
 	return []string{noValue} // empty cell
 }
+
+func (c *Cell) Length() int {
+	cell := c.Right
+
+	var count int
+	for cell != nil {
+		count++
+		cell = cell.Right
+	}
+
+	return count
+}
+
+func (c *Cell) Depth() int {
+	cell := c.Down
+
+	var count int
+	for cell != nil {
+		count++
+		cell = cell.Down
+	}
+
+	return count
+}

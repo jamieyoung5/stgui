@@ -14,8 +14,11 @@ type Symbols struct {
 type Grid struct {
 	Content *Cell
 	Symbols *Symbols
+
+	width, height int
 }
 
+// TODO: add guarantees that this will be evenly sized (i.e it is a square/rectangle)
 func NewGrid(grid [][]any, symbols *Symbols) (*Grid, error) {
 	if len(grid) == 0 || len(grid[0]) == 0 {
 		return &Grid{}, nil
@@ -173,6 +176,10 @@ func (g *Grid) Refresh(grid [][]any) error {
 	g.Content = newGrid
 
 	return nil
+}
+
+func (g *Grid) Size() (height int, width int) {
+	return g.Content.Depth(), g.Content.Length()
 }
 
 func createGridCells(rows int, cols int, grid [][]any) (*Cell, error) {
