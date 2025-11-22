@@ -3,10 +3,10 @@ package stgui
 import "strings"
 
 type Widget interface {
-	GetDimensions() (height int, width int)
+	Size() (width, height int)
 	Print(cursor *Cursor)
 	Render(cursor *Cursor) string
-	Select(cursor *Cursor, macro string) (screen *Screen, exit bool)
+	Select(cursor *Cursor, input string) (screen *Screen, exit bool)
 }
 
 type Element struct {
@@ -19,15 +19,16 @@ func (vc *Element) Render() string {
 }
 
 type Screen struct {
-	Elements [][]*Element
-	Cursors  []*Cursor
-	Persist  bool
+	Persist bool
+	Cursors []*Cursor
+
+	elements [][]*Element
 }
 
 func (s *Screen) Render() string {
 	var builder strings.Builder
 
-	for _, row := range s.Elements {
+	for _, row := range s.elements {
 		var items []string
 		for _, componentNode := range row {
 			items = append(items, componentNode.Render())
@@ -39,4 +40,8 @@ func (s *Screen) Render() string {
 	}
 
 	return builder.String()
+}
+
+func (s *Screen) SelectElement(cursor *Cursor, input string) (screen *Screen, exit bool) {
+	return s.elements[cursor.gridX][cursor.gridY].widget.Select(cursor, input)
 }

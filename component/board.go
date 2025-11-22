@@ -16,7 +16,7 @@ type BoardControls struct {
 type Board struct {
 	grid              *stgui.Grid
 	styling           *stgui.Symbols
-	selector          func(cursor *stgui.Cursor, macro string) (*stgui.Screen, bool)
+	selector          func(cursor *stgui.Cursor, input string) (*stgui.Screen, bool)
 	traversalControls BoardControls
 }
 
@@ -32,8 +32,8 @@ func (b *Board) Render(cursor *stgui.Cursor) string {
 	return b.grid.Render()
 }
 
-func (b *Board) Select(cursor *stgui.Cursor, macro string) (screen *stgui.Screen, exit bool) {
-	switch macro {
+func (b *Board) Select(cursor *stgui.Cursor, input string) (screen *stgui.Screen, exit bool) {
+	switch input {
 	case string(b.traversalControls.Up):
 		cursor.Up()
 		return
@@ -48,5 +48,5 @@ func (b *Board) Select(cursor *stgui.Cursor, macro string) (screen *stgui.Screen
 		return
 	}
 
-	return b.selector(cursor, macro)
+	return b.selector(cursor, input)
 }

@@ -12,40 +12,40 @@ import (
 )
 
 type App struct {
-	Screens *gostrc.Stack[*View]
+	Screens *gostrc.Stack[*Screen]
 }
 
-func NewApp(screen *View) *App {
-	screenStack := gostrc.NewStack[*View]()
+func NewApp(screen *Screen) *App {
+	screenStack := gostrc.NewStack[*Screen]()
 	screenStack.Push(screen)
 
 	return &App{screenStack}
 }
 
-func (ic *App) Display() {
+func (a *App) Display() {
 	term.Clear()
-	screen := ic.Screens.Peek()
+	screen := a.Screens.Peek()
 
 	serializedScreen := screen.Render()
 	fmt.Println(serializedScreen)
 }
 
-func (ic *App) Run() {
+func (a *App) Run() {
 	quit := make(chan bool)
-	go renderWorker(ic, quit)
+	go renderWorker(a, quit)
 
-	for !ic.Screens.IsEmpty() {
-		ic.Display()
+	for !a.Screens.IsEmpty() {
+		a.Display()
 
 		reader := bufio.NewReader(os.Stdin)
 
-		ic.listen(reader)
+		a.listen(reader)
 	}
 
 	quit <- true
 }
 
-func (ic *App) listen(reader *bufio.Reader) {
+func (a *App) listen(reader *bufio.Reader) {
 	for {
 		sequence, err := keyboard.ReadInput(reader)
 		if err != nil {
@@ -53,34 +53,34 @@ func (ic *App) listen(reader *bufio.Reader) {
 			continue
 		}
 
-		screen := ic.Screens.Peek()
+		screen := a.Screens.Peek()
 		for _, cursor := range screen.Cursors {
 			if cursor == nil {
 				continue
 			}
 
-			if macro, ok := cursor.controls[sequence]; ok {
-				ic.handleSelection(macro, cursor, screen)
+			if input, ok := cursor.controls[sequence]; ok {
+				a.handleSelection(input, cursor, screen)
 			}
 
 			return
 		}
-		ic.Display()
+		a.Display()
 	}
 }
 
-func (ic *App) handleSelection(macro string, cursor *Cursor, view *View) {
-	nextScreen, exit := view.Components[cursor.gridY][cursor.gridX].Component.Select(cursor, macro)
-	ic.Display()
+func (a *App) handleSelection(input string, cursor *Cursor, screen *Screen) {
+	nextScreen, exit := screen.SelectElement(cursor, input)
+	a.Display()
 
 	if exit {
-		if nextScreen != nil && !view.Persist {
-			ic.Screens.Pop()
+		if nextScreen != nil && !screen.Persist {
+			a.Screens.Pop()
 		}
 
-		ic.Screens.Push(nextScreen)
+		a.Screens.Push(nextScreen)
 	} else {
-		ic.Screens.Pop()
+		a.Screens.Pop()
 	}
 }
 

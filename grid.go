@@ -4,27 +4,27 @@ import (
 	"strings"
 )
 
-type Symbols struct {
-	VerticalDivider     string
-	HorizontalDivider   string
-	CrossSectionDivider string
-	NoValue             string
+type GridStyle struct {
+	VerticalDivider   string
+	HorizontalDivider string
+	Intersection      string
+	NoValue           string
 }
 
 type Grid struct {
-	Content *Cell
-	Symbols *Symbols
+	Root  *Cell
+	Style *GridStyle
 
 	width, height int
 }
 
 // TODO: add guarantees that this will be evenly sized (i.e it is a square/rectangle)
-func NewGrid(grid [][]any, symbols *Symbols) (*Grid, error) {
+func NewGrid(grid [][]any, style *GridStyle) (*Grid, error) {
 	if len(grid) == 0 || len(grid[0]) == 0 {
 		return &Grid{}, nil
 	}
-	if symbols == nil {
-		symbols = &Symbols{}
+	if style == nil {
+		style = &GridStyle{}
 	}
 
 	rows := len(grid)
@@ -35,29 +35,29 @@ func NewGrid(grid [][]any, symbols *Symbols) (*Grid, error) {
 	}
 
 	return &Grid{
-		Content: cellGrid,
-		Symbols: symbols,
+		Root:  cellGrid,
+		Style: style,
 	}, nil
 }
 
-func WithGridSymbols() *Symbols {
-	return &Symbols{
-		VerticalDivider:     "|",
-		HorizontalDivider:   "-",
-		CrossSectionDivider: "+",
-		NoValue:             ".",
+func WithGridSymbols() *GridStyle {
+	return &GridStyle{
+		VerticalDivider:   "|",
+		HorizontalDivider: "-",
+		Intersection:      "+",
+		NoValue:           ".",
 	}
 }
 
 func (g *Grid) Render() string { return Render(g) }
 
 func (g *Grid) RenderLines() []string {
-	if g.Content == nil {
-		return []string{g.Symbols.NoValue}
+	if g.Root == nil {
+		return []string{g.Style.NoValue}
 	}
 
 	cellBlocks := [][][]string{}
-	rowStart := g.Content
+	rowStart := g.Root
 	numRows := 0
 	numCols := 0
 
@@ -81,7 +81,7 @@ func (g *Grid) RenderLines() []string {
 	}
 
 	if numRows == 0 || numCols == 0 {
-		return []string{g.Symbols.NoValue}
+		return []string{g.Style.NoValue}
 	}
 
 	maxHeights := make([]int, numRows)
@@ -106,9 +106,9 @@ func (g *Grid) RenderLines() []string {
 		}
 	}
 
-	vDivider := " " + g.Symbols.VerticalDivider + " "
-	hDivider := g.Symbols.HorizontalDivider
-	cDivider := g.Symbols.CrossSectionDivider
+	vDivider := " " + g.Style.VerticalDivider + " "
+	hDivider := g.Style.HorizontalDivider
+	cDivider := g.Style.Intersection
 
 	hJoin := strings.Repeat(hDivider, len(vDivider)/2) +
 		cDivider +
@@ -122,7 +122,7 @@ func (g *Grid) RenderLines() []string {
 			if c < len(cellBlocks[r]) {
 				block = cellBlocks[r][c]
 			}
-			paddedBlocks[r][c] = PadBlock(block, maxHeights[r], maxWidths[c], g.Symbols.NoValue)
+			paddedBlocks[r][c] = PadBlock(block, maxHeights[r], maxWidths[c], g.Style.NoValue)
 		}
 	}
 
@@ -173,13 +173,13 @@ func (g *Grid) Refresh(grid [][]any) error {
 		return err
 	}
 
-	g.Content = newGrid
+	g.Root = newGrid
 
 	return nil
 }
 
 func (g *Grid) Size() (height int, width int) {
-	return g.Content.Depth(), g.Content.Length()
+	return g.Root.Width(), g.Root.Height()
 }
 
 func createGridCells(rows int, cols int, grid [][]any) (*Cell, error) {
@@ -200,8 +200,8 @@ func createGridCells(rows int, cols int, grid [][]any) (*Cell, error) {
 			cellGrid[r][c] = cell
 
 			element := grid[r][c]
-			if layout, ok := element.(Layout); ok {
-				cell.SubGrid = layout
+			if renderableElement, ok := element.(Renderable); ok {
+				cell.Child = renderableElement
 			} else {
 				cell.Value = element
 			}
