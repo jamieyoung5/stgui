@@ -1,8 +1,6 @@
-package component
+package widgets
 
 import (
-	"fmt"
-
 	"github.com/jamieyoung5/stgui"
 )
 
@@ -15,17 +13,12 @@ type BoardControls struct {
 
 type Board struct {
 	grid              *stgui.Grid
-	styling           *stgui.Symbols
 	selector          func(cursor *stgui.Cursor, input string) (*stgui.Screen, bool)
 	traversalControls BoardControls
 }
 
-func (b *Board) GetDimensions() (height int, width int) {
+func (b *Board) Size() (height int, width int) {
 	return b.grid.Size()
-}
-
-func (b *Board) Print(cursor *stgui.Cursor) {
-	fmt.Printf(b.Render(cursor))
 }
 
 func (b *Board) Render(cursor *stgui.Cursor) string {

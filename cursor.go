@@ -16,11 +16,11 @@ func NewCursor(x, y, gridX, gridY int, controls map[string]string) *Cursor {
 	}
 }
 
-func (c *Cursor) GetCoords() (x int, y int) {
+func (c *Cursor) Coords() (x int, y int) {
 	return c.x, c.y
 }
 
-func (c *Cursor) GetGridCoords() (x int, y int) {
+func (c *Cursor) GridCoords() (x int, y int) {
 	return c.gridX, c.gridY
 }
 

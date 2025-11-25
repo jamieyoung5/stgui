@@ -8,7 +8,6 @@ import (
 
 	"github.com/jamieyoung5/gostrc"
 	"github.com/jamieyoung5/stgui/keyboard"
-	"github.com/jamieyoung5/stgui/term"
 )
 
 type App struct {
@@ -23,7 +22,7 @@ func NewApp(screen *Screen) *App {
 }
 
 func (a *App) Display() {
-	term.Clear()
+	clearTerm()
 	screen := a.Screens.Peek()
 
 	serializedScreen := screen.Render()
@@ -34,6 +33,10 @@ func (a *App) Run() {
 	quit := make(chan bool)
 	go renderWorker(a, quit)
 
+	defer func() {
+		quit <- true
+	}()
+
 	for !a.Screens.IsEmpty() {
 		a.Display()
 
@@ -41,16 +44,13 @@ func (a *App) Run() {
 
 		a.listen(reader)
 	}
-
-	quit <- true
 }
 
-func (a *App) listen(reader *bufio.Reader) {
+func (a *App) listen(reader *bufio.Reader) bool {
 	for {
-		sequence, err := keyboard.ReadInput(reader)
+		sequence, err := keyboard.ReadInput(reader, os.Stdin)
 		if err != nil {
-			fmt.Printf("error reading from input (%d)", err)
-			continue
+			return false
 		}
 
 		screen := a.Screens.Peek()
@@ -63,7 +63,7 @@ func (a *App) listen(reader *bufio.Reader) {
 				a.handleSelection(input, cursor, screen)
 			}
 
-			return
+			return true
 		}
 		a.Display()
 	}
@@ -77,10 +77,11 @@ func (a *App) handleSelection(input string, cursor *Cursor, screen *Screen) {
 		if nextScreen != nil && !screen.Persist {
 			a.Screens.Pop()
 		}
-
-		a.Screens.Push(nextScreen)
-	} else {
-		a.Screens.Pop()
+		if nextScreen != nil {
+			a.Screens.Push(nextScreen)
+		} else {
+			a.Screens.Pop()
+		}
 	}
 }
 
@@ -98,9 +99,16 @@ func renderWorker(app *App, quit chan bool) {
 }
 
 func render(app *App, currentScreen string) {
+	if app.Screens.IsEmpty() {
+		return
+	}
 	newScreen := app.Screens.Peek().Render()
 	if newScreen != currentScreen {
-		term.Clear()
+		clearTerm()
 		app.Display()
 	}
+}
+
+func clearTerm() {
+	fmt.Print("\033[H\033[2J\033[3J")
 }

@@ -2,6 +2,8 @@ package stgui
 
 import (
 	"strings"
+
+	"github.com/jamieyoung5/gostrc/strutil"
 )
 
 type GridStyle struct {
@@ -49,7 +51,9 @@ func WithGridSymbols() *GridStyle {
 	}
 }
 
-func (g *Grid) Render() string { return Render(g) }
+func (g *Grid) Render() string {
+	return strings.Join(g.RenderLines(), "\n")
+}
 
 func (g *Grid) RenderLines() []string {
 	if g.Root == nil {
@@ -95,7 +99,7 @@ func (g *Grid) RenderLines() []string {
 
 			block := cellBlocks[r][c]
 			h := len(block)
-			w := MaxLength(block)
+			w := strutil.MaxLen(block)
 
 			if h > maxHeights[r] {
 				maxHeights[r] = h
@@ -118,11 +122,11 @@ func (g *Grid) RenderLines() []string {
 	for r := 0; r < numRows; r++ {
 		paddedBlocks[r] = make([][]string, numCols)
 		for c := 0; c < numCols; c++ {
-			var block []string
+			var rows []string
 			if c < len(cellBlocks[r]) {
-				block = cellBlocks[r][c]
+				rows = cellBlocks[r][c]
 			}
-			paddedBlocks[r][c] = PadBlock(block, maxHeights[r], maxWidths[c], g.Style.NoValue)
+			paddedBlocks[r][c] = strutil.PadRows(rows, maxHeights[r], maxWidths[c], g.Style.NoValue)
 		}
 	}
 

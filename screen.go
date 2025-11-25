@@ -1,10 +1,13 @@
 package stgui
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/jamieyoung5/gostrc/strutil"
+)
 
 type Widget interface {
 	Size() (width, height int)
-	Print(cursor *Cursor)
 	Render(cursor *Cursor) string
 	Select(cursor *Cursor, input string) (screen *Screen, exit bool)
 }
@@ -12,6 +15,13 @@ type Widget interface {
 type Element struct {
 	cursor *Cursor
 	widget Widget
+}
+
+func NewElement(cursor *Cursor, widget Widget) *Element {
+	return &Element{
+		cursor: cursor,
+		widget: widget,
+	}
 }
 
 func (vc *Element) Render() string {
@@ -25,23 +35,36 @@ type Screen struct {
 	elements [][]*Element
 }
 
+func NewScreen(cursors []*Cursor, elements [][]*Element) *Screen {
+	return &Screen{
+		Cursors:  cursors,
+		elements: elements,
+	}
+}
+
+func (s *Screen) SelectElement(cursor *Cursor, input string) (screen *Screen, exit bool) {
+	return s.elements[cursor.gridX][cursor.gridY].widget.Select(cursor, input)
+}
+
 func (s *Screen) Render() string {
 	var builder strings.Builder
 
-	for _, row := range s.elements {
-		var items []string
-		for _, componentNode := range row {
-			items = append(items, componentNode.Render())
-		}
+	for _, elemSet := range s.elements {
+		elems := renderElements(elemSet)
 
 		// Draw each row of Components side by side, with a specified number of spaces in between
-		builder.WriteString(sideBySide(items, 4))
+		builder.WriteString(strutil.SideBySide(4, elems...))
 		builder.WriteString("\n\n") // Add spacing between rows
 	}
 
 	return builder.String()
 }
 
-func (s *Screen) SelectElement(cursor *Cursor, input string) (screen *Screen, exit bool) {
-	return s.elements[cursor.gridX][cursor.gridY].widget.Select(cursor, input)
+func renderElements(elements []*Element) []string {
+	var renderedElements []string
+	for _, elem := range elements {
+		renderedElements = append(renderedElements, elem.Render())
+	}
+
+	return renderedElements
 }
