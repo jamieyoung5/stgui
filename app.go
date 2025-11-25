@@ -2,12 +2,12 @@ package stgui
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/jamieyoung5/gostrc"
-	"github.com/jamieyoung5/stgui/keyboard"
 	"golang.org/x/term"
 )
 
@@ -38,21 +38,26 @@ func (a *App) Run() {
 	defer term.Restore(int(os.Stdin.Fd()), oldState)
 
 	reader := bufio.NewReader(os.Stdin)
+	eventChan := make(chan Event)
 
 	a.Display()
 	for !a.Screens.IsEmpty() {
-		if !a.listen(reader) {
-			break
+		listen(eventChan, reader)
+		event := <-eventChan
+
+		switch v := event.(type) {
+		case KeyPressEvent:
+			a.handleInput(v.Input)
+		case ErrorEvent:
+			panic(v.Err)
+		default:
+			panic(errors.New("recieved unknown event"))
 		}
 	}
+
 }
 
-func (a *App) listen(reader *bufio.Reader) bool {
-	sequence, err := keyboard.ReadInput(reader, os.Stdin)
-	if err != nil {
-		return false
-	}
-
+func (a *App) handleInput(sequence string) {
 	screen := a.Screens.Peek()
 	for _, cursor := range screen.Cursors {
 		if cursor == nil {
@@ -64,8 +69,6 @@ func (a *App) listen(reader *bufio.Reader) bool {
 			break
 		}
 	}
-
-	return true
 }
 
 func (a *App) handleSelection(input string, cursor *Cursor, screen *Screen) {
