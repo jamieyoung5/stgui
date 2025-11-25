@@ -1,8 +1,13 @@
 package stgui
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const noValue = "."
+const whiteBGBlack = "\033[47m\033[30m" // White background, Black text
+const resetStyle = "\033[0m"
 
 type Renderable interface {
 	RenderLines() []string
@@ -12,8 +17,12 @@ type Cell struct {
 	Value any
 	Child Renderable
 
-	Right *Cell
+	Selected bool
+
+	Up    *Cell
 	Down  *Cell
+	Left  *Cell
+	Right *Cell
 }
 
 func (c *Cell) RenderLines() []string {
@@ -21,6 +30,12 @@ func (c *Cell) RenderLines() []string {
 		return c.Child.RenderLines()
 	}
 	if c.Value != nil {
+		if c.Selected {
+			strValue := fmt.Sprint(c.Value)
+			trimmed := strings.TrimSpace(fmt.Sprint(c.Value))
+			coloured := fmt.Sprint(whiteBGBlack, trimmed, resetStyle)
+			return []string{strings.ReplaceAll(strValue, trimmed, coloured)}
+		}
 		return []string{fmt.Sprint(c.Value)}
 	}
 

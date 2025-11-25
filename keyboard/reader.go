@@ -14,7 +14,7 @@ const (
 	LeftArrowKey  = "LEFT"
 	RightArrowKey = "RIGHT"
 
-	keySequenceTimeout = 50 * time.Millisecond
+	keySequenceTimeout = 200 * time.Millisecond
 )
 
 func ReadInput(reader *bufio.Reader, file *os.File) (string, error) {
@@ -55,6 +55,14 @@ func ReadInput(reader *bufio.Reader, file *os.File) (string, error) {
 }
 
 func readRuneWithDeadline(r *bufio.Reader, f *os.File, timeout time.Duration) (rune, error) {
+	// Optimization: If data is already in the buffer, read immediately.
+	// This avoids syscall overhead and potential errors with SetReadDeadline
+	// when the full sequence is already waiting (which is typical for arrow keys).
+	if r.Buffered() > 0 {
+		rn, _, err := r.ReadRune()
+		return rn, err
+	}
+
 	if err := f.SetReadDeadline(time.Now().Add(timeout)); err != nil {
 		return 0, err
 	}

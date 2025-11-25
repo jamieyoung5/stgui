@@ -21,7 +21,7 @@ func (b *Board) Size() (height int, width int) {
 	return b.grid.Size()
 }
 
-func (b *Board) Render(cursor *stgui.Cursor) string {
+func (b *Board) Render() string {
 	return b.grid.Render()
 }
 

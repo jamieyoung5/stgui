@@ -1,6 +1,7 @@
 package stgui
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/jamieyoung5/gostrc/strutil"
@@ -18,6 +19,12 @@ type Grid struct {
 	Style *GridStyle
 
 	width, height int
+}
+
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func visibleLen(str string) int {
+	return len(ansiEscape.ReplaceAllString(str, ""))
 }
 
 // TODO: add guarantees that this will be evenly sized (i.e it is a square/rectangle)
@@ -99,7 +106,7 @@ func (g *Grid) RenderLines() []string {
 
 			block := cellBlocks[r][c]
 			h := len(block)
-			w := strutil.MaxLen(block)
+			w := strutil.MaxVisibleLen(block)
 
 			if h > maxHeights[r] {
 				maxHeights[r] = h
@@ -126,7 +133,7 @@ func (g *Grid) RenderLines() []string {
 			if c < len(cellBlocks[r]) {
 				rows = cellBlocks[r][c]
 			}
-			paddedBlocks[r][c] = strutil.PadRows(rows, maxHeights[r], maxWidths[c], g.Style.NoValue)
+			paddedBlocks[r][c] = strutil.PadVisibleRows(rows, maxHeights[r], maxWidths[c], g.Style.NoValue)
 		}
 	}
 
@@ -187,21 +194,11 @@ func (g *Grid) Size() (height int, width int) {
 }
 
 func createGridCells(rows int, cols int, grid [][]any) (*Cell, error) {
-
-	cells := make([]Cell, rows*cols)
 	cellGrid := make([][]*Cell, rows)
-	pointers := make([]*Cell, rows*cols)
-
 	for r := range rows {
-		rowStart := r * cols
-		cellGrid[r] = pointers[rowStart : rowStart+cols]
-
+		cellGrid[r] = make([]*Cell, cols)
 		for c := range cols {
-			index := r*cols + c
-
-			cell := &cells[index]
-
-			cellGrid[r][c] = cell
+			cell := &Cell{}
 
 			element := grid[r][c]
 			if renderableElement, ok := element.(Renderable); ok {
@@ -209,6 +206,8 @@ func createGridCells(rows int, cols int, grid [][]any) (*Cell, error) {
 			} else {
 				cell.Value = element
 			}
+
+			cellGrid[r][c] = cell
 		}
 	}
 
@@ -216,8 +215,14 @@ func createGridCells(rows int, cols int, grid [][]any) (*Cell, error) {
 		for c := range cols {
 			cell := cellGrid[r][c]
 
+			if r > 0 {
+				cell.Up = cellGrid[r-1][c]
+			}
 			if r < rows-1 {
 				cell.Down = cellGrid[r+1][c]
+			}
+			if c > 0 {
+				cell.Left = cellGrid[r][c-1]
 			}
 			if c < cols-1 {
 				cell.Right = cellGrid[r][c+1]

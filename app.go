@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"time"
+	"strings"
 
 	"github.com/jamieyoung5/gostrc"
 	"github.com/jamieyoung5/stgui/keyboard"
+	"golang.org/x/term"
 )
 
 type App struct {
@@ -26,51 +27,49 @@ func (a *App) Display() {
 	screen := a.Screens.Peek()
 
 	serializedScreen := screen.Render()
-	fmt.Println(serializedScreen)
+	fmt.Print(strings.ReplaceAll(serializedScreen, "\n", "\r\n"))
 }
 
 func (a *App) Run() {
-	quit := make(chan bool)
-	go renderWorker(a, quit)
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		panic(err)
+	}
+	defer term.Restore(int(os.Stdin.Fd()), oldState)
 
-	defer func() {
-		quit <- true
-	}()
+	reader := bufio.NewReader(os.Stdin)
 
+	a.Display()
 	for !a.Screens.IsEmpty() {
-		a.Display()
-
-		reader := bufio.NewReader(os.Stdin)
-
-		a.listen(reader)
+		if !a.listen(reader) {
+			break
+		}
 	}
 }
 
 func (a *App) listen(reader *bufio.Reader) bool {
-	for {
-		sequence, err := keyboard.ReadInput(reader, os.Stdin)
-		if err != nil {
-			return false
-		}
-
-		screen := a.Screens.Peek()
-		for _, cursor := range screen.Cursors {
-			if cursor == nil {
-				continue
-			}
-
-			if input, ok := cursor.controls[sequence]; ok {
-				a.handleSelection(input, cursor, screen)
-			}
-
-			return true
-		}
-		a.Display()
+	sequence, err := keyboard.ReadInput(reader, os.Stdin)
+	if err != nil {
+		return false
 	}
+
+	screen := a.Screens.Peek()
+	for _, cursor := range screen.Cursors {
+		if cursor == nil {
+			continue
+		}
+
+		if input, ok := cursor.controls[sequence]; ok {
+			a.handleSelection(input, cursor, screen)
+			break
+		}
+	}
+
+	return true
 }
 
 func (a *App) handleSelection(input string, cursor *Cursor, screen *Screen) {
-	nextScreen, exit := screen.SelectElement(cursor, input)
+	nextScreen, exit := cursor.Select(input)
 	a.Display()
 
 	if exit {
@@ -85,30 +84,6 @@ func (a *App) handleSelection(input string, cursor *Cursor, screen *Screen) {
 	}
 }
 
-func renderWorker(app *App, quit chan bool) {
-	screen := app.Screens.Peek().Render()
-	for {
-		select {
-		case <-quit:
-			return
-		default:
-			time.Sleep(time.Millisecond * 500)
-			render(app, screen)
-		}
-	}
-}
-
-func render(app *App, currentScreen string) {
-	if app.Screens.IsEmpty() {
-		return
-	}
-	newScreen := app.Screens.Peek().Render()
-	if newScreen != currentScreen {
-		clearTerm()
-		app.Display()
-	}
-}
-
 func clearTerm() {
-	fmt.Print("\033[H\033[2J\033[3J")
+	fmt.Print("\033[H\033[J")
 }

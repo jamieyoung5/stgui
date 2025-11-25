@@ -26,6 +26,12 @@ var (
 		"\x1b[B": DownArrowKey,
 		"\x1b[C": RightArrowKey,
 		"\x1b[D": LeftArrowKey,
+
+		// Application Cursor Keys
+		"\x1bOA": UpArrowKey,
+		"\x1bOB": DownArrowKey,
+		"\x1bOC": RightArrowKey,
+		"\x1bOD": LeftArrowKey,
 	}
 
 	sequencesTrie = gostrc.NewTrie(slices.Collect(maps.Keys(Sequences)))

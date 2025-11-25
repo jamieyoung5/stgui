@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/jamieyoung5/stgui"
@@ -9,15 +8,10 @@ import (
 )
 
 // GridWidget wraps stgui.Grid to satisfy the stgui.Widget interface.
-// Since Grid.Render() doesn't take a cursor and Grid lacks Select(),
-// we adapt it here.
+// We embed *stgui.Grid so that methods like Render() and Size() are automatically promoted
+// to satisfy the interface, leaving us to implement only Select().
 type GridWidget struct {
 	*stgui.Grid
-}
-
-// Render adapts the interface.
-func (gw *GridWidget) Render(c *stgui.Cursor) string {
-	return gw.Grid.Render()
 }
 
 // Select handles input. Returns exit=true to close the screen.
@@ -60,27 +54,26 @@ func main() {
 		keyboard.LeftArrowKey:  "LEFT",
 		keyboard.RightArrowKey: "RIGHT",
 		"q":                    "QUIT",
-		keyboard.EscapeKey:     "QUIT",
+		//keyboard.EscapeKey:     "QUIT",
 	}
+
+	// 5. Wrap Grid in Widget
+	// The GridWidget struct defined above allows the Grid to satisfy the Widget interface.
+	gridWidget := &GridWidget{Grid: grid}
 
 	// 4. Create Cursor
-	cursor := stgui.NewCursor(0, 0, 0, 0, controls)
+	// We attach the cursor to the root cell of the grid so it starts at top-left.
+	grid.Root.Selected = true
+	cursor := stgui.NewCursor(gridWidget, grid.Root, controls)
 
-	// 5. Wrap Grid in Widget Adapter
-	widget := &GridWidget{Grid: grid}
+	// 6. Create Screen
+	// We pass a slice of cursors (just one here) and a 2D layout of widgets.
+	screen := stgui.NewScreen(
+		[]*stgui.Cursor{cursor},
+		[][]stgui.Widget{{gridWidget}},
+	)
 
-	// 6. Create Element
-	element := stgui.NewElement(cursor, widget)
-
-	// 7. Create Screen
-	// Layout is a 1x1 grid of elements
-	screenLayout := [][]*stgui.Element{
-		{element},
-	}
-	screen := stgui.NewScreen([]*stgui.Cursor{cursor}, screenLayout)
-
-	// 8. Run App
-	fmt.Println("Starting stgui demo... Press 'q' or 'ESC' to quit.")
+	// 7. Create and Run App
 	app := stgui.NewApp(screen)
 	app.Run()
 }
