@@ -1,4 +1,4 @@
-package stgui
+package events
 
 import (
 	"bufio"
@@ -27,19 +27,24 @@ type KeyPressEvent struct {
 	Msg
 }
 
-func listenForInput(eventChan chan Event, r *bufio.Reader) {
-	sequence, err := keyboard.ReadInput(r, os.Stdin)
-	if err != nil {
-		eventChan <- ErrorEvent{
-			Err: err,
-		}
-	}
+type ResizeEvent struct {
+	Width  int
+	Height int
+	Msg
+}
 
-	eventChan <- KeyPressEvent{
-		Input: sequence,
+func listenForInput(eventChan chan Event, r *bufio.Reader) {
+	for {
+		sequence, err := keyboard.ReadInput(r, os.Stdin)
+		if err != nil {
+			eventChan <- ErrorEvent{Err: err}
+		}
+
+		eventChan <- KeyPressEvent{Input: sequence}
 	}
 }
 
-func listen(eventChan chan Event, r *bufio.Reader) {
+func Listen(eventChan chan Event, r *bufio.Reader) {
 	go listenForInput(eventChan, r)
+	go listenForResize(eventChan)
 }

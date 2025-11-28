@@ -1,54 +1,114 @@
-package stgui
+package stgui_test
 
 import (
-	"runtime"
+	"strings"
 	"testing"
+
+	"github.com/jamieyoung5/stgui"
 )
 
-func makeLargeGrid(rows, cols int) *Grid {
-	gridData := make([][]any, rows)
-	for r := range gridData {
-		gridData[r] = make([]any, cols)
-		for c := range gridData[r] {
-			gridData[r][c] = "Item\n" + string(rune('A'+r)) + "-" + string(rune('0'+c))
-		}
+func TestGrid_NewGrid(t *testing.T) {
+	data := [][]any{
+		{"A", "B"},
+		{"C", "D"},
 	}
-	g, _ := NewGrid(gridData, WithGridSymbols())
-	return g
+	g, err := stgui.NewGrid(data, nil)
+	if err != nil {
+		t.Fatalf("NewGrid failed: %v", err)
+	}
+	h, w := g.Size()
+	if h != 2 || w != 2 {
+		t.Errorf("Expected size 2x2, got %dx%d", h, w)
+	}
+	if g.Cells[0][0].Value != "A" {
+		t.Errorf("Expected cell 0,0 to be 'A', got %v", g.Cells[0][0].Value)
+	}
 }
 
-func BenchmarkGridRenderLines(b *testing.B) {
-	g := makeLargeGrid(50, 50)
-
-	b.ResetTimer()
-	var result []string
-	for i := 0; i < b.N; i++ {
-		result = g.RenderLines()
+func TestGrid_NewGrid_Empty(t *testing.T) {
+	g, err := stgui.NewGrid([][]any{}, nil)
+	if err != nil {
+		t.Fatalf("NewGrid failed on empty: %v", err)
 	}
-	runtime.KeepAlive(result)
+	if g.Cells != nil {
+		t.Error("Expected nil Cells for empty grid")
+	}
 }
 
-func BenchmarkCreateGridCells(b *testing.B) {
-	const rows, cols = 50, 50
-	gridData := make([][]any, rows)
-	for r := range gridData {
-		gridData[r] = make([]any, cols)
-		for c := range gridData[r] {
-			gridData[r][c] = "Item " + string(rune('A'+r)) + string(rune('0'+c))
-		}
+func TestGrid_NewGrid_Ragged(t *testing.T) {
+	data := [][]any{
+		{"A"},
+		{"B", "C"},
+	}
+	g, err := stgui.NewGrid(data, nil)
+	if err != nil {
+		t.Fatalf("NewGrid failed on ragged: %v", err)
 	}
 
-	var result *Cell
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		res, err := createGridCells(rows, cols, gridData)
-		if err != nil {
-			b.Fatal(err)
-		}
-		result = res
+	h, w := g.Size()
+	if h != 2 || w != 2 {
+		t.Errorf("Expected size 2x2 (max width), got %dx%d", h, w)
 	}
 
-	runtime.KeepAlive(result)
+	if g.Cells[0][1].Value != nil {
+		t.Errorf("Expected cell 0,1 (missing in input) to be nil, got %v", g.Cells[0][1].Value)
+	}
+	if g.Cells[1][1].Value != "C" {
+		t.Errorf("Expected cell 1,1 to be 'C', got %v", g.Cells[1][1].Value)
+	}
+}
+
+func TestGrid_Render(t *testing.T) {
+	data := [][]any{
+		{"A", "B"},
+	}
+	style := &stgui.GridStyle{
+		VerticalDivider:   "|",
+		HorizontalDivider: "-",
+		Intersection:      "+",
+		NoValue:           ".",
+	}
+	g, _ := stgui.NewGrid(data, style)
+
+	output := g.RenderLines()
+	if len(output) != 1 {
+		t.Fatalf("Expected 1 line, got %d", len(output))
+	}
+
+	if !strings.Contains(output[0], "A") || !strings.Contains(output[0], "|") || !strings.Contains(output[0], "B") {
+		t.Errorf("Render output unexpected: %q", output[0])
+	}
+}
+
+func TestGrid_Render_MultiRow(t *testing.T) {
+	data := [][]any{
+		{"A", "B"},
+		{"C", "D"},
+	}
+	style := stgui.WithGridSymbols()
+	g, _ := stgui.NewGrid(data, style)
+
+	output := g.RenderLines()
+	if len(output) != 3 {
+		t.Fatalf("Expected 3 lines, got %d", len(output))
+	}
+
+	if !strings.Contains(output[1], "-") {
+		t.Error("Divider line missing between rows")
+	}
+}
+
+func TestGrid_Refresh(t *testing.T) {
+	g, _ := stgui.NewGrid([][]any{{"A"}}, nil)
+	err := g.Refresh([][]any{{"B", "C"}})
+	if err != nil {
+		t.Fatalf("Refresh failed: %v", err)
+	}
+
+	if len(g.Cells) != 1 || len(g.Cells[0]) != 2 {
+		t.Errorf("Cells dimensions not updated correctly. Got %dx%d", len(g.Cells), len(g.Cells[0]))
+	}
+	if g.Cells[0][0].Value != "B" {
+		t.Errorf("Expected first cell to be 'B', got %v", g.Cells[0][0].Value)
+	}
 }

@@ -8,53 +8,88 @@ import (
 	"strings"
 
 	"github.com/jamieyoung5/gostrc"
+	"github.com/jamieyoung5/stgui/events"
 	"golang.org/x/term"
 )
 
 type App struct {
-	Screens *gostrc.Stack[*Screen]
+	Screens    *gostrc.Stack[*Screen]
+	lastBuffer []string
 }
 
 func NewApp(screen *Screen) *App {
 	screenStack := gostrc.NewStack[*Screen]()
 	screenStack.Push(screen)
 
-	return &App{screenStack}
+	return &App{Screens: screenStack}
 }
 
 func (a *App) Display() {
-	clearTerm()
 	screen := a.Screens.Peek()
+	output := screen.Render()
+	lines := strings.Split(output, "\n")
 
-	serializedScreen := screen.Render()
-	fmt.Print(strings.ReplaceAll(serializedScreen, "\n", "\r\n"))
+	if a.lastBuffer == nil {
+		fmt.Print("\033[H\033[J")
+		fmt.Print("\033[?25l")
+	}
+
+	bw := bufio.NewWriter(os.Stdout)
+	for i, line := range lines {
+		if a.lastBuffer != nil && i < len(a.lastBuffer) && a.lastBuffer[i] == line {
+			continue
+		}
+
+		fmt.Fprintf(bw, "\033[%d;1H\033[K%s", i+1, line)
+	}
+
+	if a.lastBuffer != nil && len(lines) < len(a.lastBuffer) {
+		for i := len(lines); i < len(a.lastBuffer); i++ {
+			fmt.Printf("\033[%d;1H\033[K", i+1)
+		}
+	}
+
+	bw.Flush()
+	a.lastBuffer = lines
 }
 
-func (a *App) Run() {
+func (a *App) Run() error {
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		panic(err)
 	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
+	defer func() {
+		fmt.Print("\033[?25h")
+		term.Restore(int(os.Stdin.Fd()), oldState)
+	}()
 
 	reader := bufio.NewReader(os.Stdin)
-	eventChan := make(chan Event)
+	eventChan := make(chan events.Event)
+
+	events.Listen(eventChan, reader)
 
 	a.Display()
 	for !a.Screens.IsEmpty() {
-		listen(eventChan, reader)
 		event := <-eventChan
 
 		switch v := event.(type) {
-		case KeyPressEvent:
+		case events.KeyPressEvent:
 			a.handleInput(v.Input)
-		case ErrorEvent:
-			panic(v.Err)
+		case events.ResizeEvent:
+			a.handleResize()
+		case events.ErrorEvent:
+			return v.Err
 		default:
-			panic(errors.New("recieved unknown event"))
+			return errors.New("recieved unknown event")
 		}
 	}
 
+	return nil
+}
+
+func (a *App) handleResize() {
+	a.lastBuffer = nil
+	a.Display()
 }
 
 func (a *App) handleInput(sequence string) {
@@ -64,16 +99,18 @@ func (a *App) handleInput(sequence string) {
 			continue
 		}
 
-		if input, ok := cursor.controls[sequence]; ok {
+		if input, ok := cursor.Controls[sequence]; ok {
 			a.handleSelection(input, cursor, screen)
 			break
 		}
+
+		a.handleSelection(sequence, cursor, screen)
+		break
 	}
 }
 
 func (a *App) handleSelection(input string, cursor *Cursor, screen *Screen) {
 	nextScreen, exit := cursor.Select(input)
-	a.Display()
 
 	if exit {
 		if nextScreen != nil && !screen.Persist {
@@ -84,6 +121,12 @@ func (a *App) handleSelection(input string, cursor *Cursor, screen *Screen) {
 		} else {
 			a.Screens.Pop()
 		}
+
+		if !a.Screens.IsEmpty() {
+			a.Display()
+		}
+	} else {
+		a.Display()
 	}
 }
 

@@ -32,9 +32,9 @@ func (s *Screen) Render() string {
 	for _, elemSet := range s.widgets {
 		elems := renderWidgets(elemSet)
 
-		// Draw each row of Components side by side, with a specified number of spaces in between
+		// draw each row of Components side by side, with a specified number of spaces in between
 		builder.WriteString(strutil.SideBySide(4, elems...))
-		builder.WriteString("\n\n") // Add spacing between rows
+		builder.WriteString("\n\n") // add spacing between rows
 	}
 
 	return builder.String()

@@ -1,21 +1,31 @@
 package stgui
 
-import "fmt"
+import "github.com/jamieyoung5/stgui/keyboard"
+
+var DefaultDirectionalControls = map[string]string{
+	keyboard.UpArrowKey:    "UP",
+	keyboard.DownArrowKey:  "DOWN",
+	keyboard.LeftArrowKey:  "LEFT",
+	keyboard.RightArrowKey: "RIGHT",
+}
 
 type Cursor struct {
-	widget      Widget
-	currentCell *Cell
-	parentCell  *Cell
+	widget Widget
+	grid   *Grid
+	Row    int
+	Col    int
 
-	controls       map[string]string
+	Controls       map[string]string
 	selectedColour string
 }
 
-func NewCursor(widget Widget, startingCell *Cell, controls map[string]string) *Cursor {
+func NewCursor(widget Widget, grid *Grid, row, col int, controls map[string]string) *Cursor {
 	return &Cursor{
-		widget:      widget,
-		currentCell: startingCell,
-		controls:    controls,
+		widget:   widget,
+		grid:     grid,
+		Row:      row,
+		Col:      col,
+		Controls: controls,
 	}
 }
 
@@ -24,34 +34,33 @@ func (c *Cursor) Select(input string) (screen *Screen, exit bool) {
 }
 
 func (c *Cursor) Up() {
-	if c.currentCell.Up != nil {
-		c.currentCell.Selected = false
-		c.currentCell = c.currentCell.Up
-		c.currentCell.Selected = true
+	if c.Row > 0 {
+		c.grid.Cells[c.Row][c.Col].Selected = false
+		c.Row--
+		c.grid.Cells[c.Row][c.Col].Selected = true
 	}
 }
 
 func (c *Cursor) Down() {
-	if c.currentCell.Down != nil {
-		c.currentCell.Selected = false
-		c.currentCell = c.currentCell.Down
-		c.currentCell.Selected = true
+	if c.Row < c.grid.height-1 {
+		c.grid.Cells[c.Row][c.Col].Selected = false
+		c.Row++
+		c.grid.Cells[c.Row][c.Col].Selected = true
 	}
 }
 
 func (c *Cursor) Right() {
-	fmt.Printf("RIGHT CALLED")
-	if c.currentCell.Right != nil {
-		c.currentCell.Selected = false
-		c.currentCell = c.currentCell.Right
-		c.currentCell.Selected = true
+	if c.Col < c.grid.width-1 {
+		c.grid.Cells[c.Row][c.Col].Selected = false
+		c.Col++
+		c.grid.Cells[c.Row][c.Col].Selected = true
 	}
 }
 
 func (c *Cursor) Left() {
-	if c.currentCell.Left != nil {
-		c.currentCell.Selected = false
-		c.currentCell = c.currentCell.Left
-		c.currentCell.Selected = true
+	if c.Col > 0 {
+		c.grid.Cells[c.Row][c.Col].Selected = false
+		c.Col--
+		c.grid.Cells[c.Row][c.Col].Selected = true
 	}
 }

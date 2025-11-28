@@ -2,7 +2,6 @@ package stgui
 
 import (
 	"fmt"
-	"strings"
 )
 
 const noValue = "."
@@ -18,50 +17,26 @@ type Cell struct {
 	Child Renderable
 
 	Selected bool
-
-	Up    *Cell
-	Down  *Cell
-	Left  *Cell
-	Right *Cell
 }
 
 func (c *Cell) RenderLines() []string {
+	var lines []string
+
 	if c.Child != nil {
-		return c.Child.RenderLines()
+		lines = c.Child.RenderLines()
+	} else if c.Value != nil {
+		lines = []string{fmt.Sprint(c.Value)}
+	} else {
+		lines = []string{noValue}
 	}
-	if c.Value != nil {
-		if c.Selected {
-			strValue := fmt.Sprint(c.Value)
-			trimmed := strings.TrimSpace(fmt.Sprint(c.Value))
-			coloured := fmt.Sprint(whiteBGBlack, trimmed, resetStyle)
-			return []string{strings.ReplaceAll(strValue, trimmed, coloured)}
+
+	if c.Selected {
+		styledLines := make([]string, len(lines))
+		for i, line := range lines {
+			styledLines[i] = whiteBGBlack + line + resetStyle
 		}
-		return []string{fmt.Sprint(c.Value)}
+		return styledLines
 	}
 
-	return []string{noValue} // empty cell
-}
-
-func (c *Cell) Width() int {
-	cell := c.Right
-
-	var count int
-	for cell != nil {
-		count++
-		cell = cell.Right
-	}
-
-	return count
-}
-
-func (c *Cell) Height() int {
-	cell := c.Down
-
-	var count int
-	for cell != nil {
-		count++
-		cell = cell.Down
-	}
-
-	return count
+	return lines
 }
