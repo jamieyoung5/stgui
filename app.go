@@ -94,19 +94,17 @@ func (a *App) handleResize() {
 
 func (a *App) handleInput(sequence string) {
 	screen := a.Screens.Peek()
-	for _, cursor := range screen.Cursors {
-		if cursor == nil {
-			continue
-		}
-
-		if input, ok := cursor.Controls[sequence]; ok {
-			a.handleSelection(input, cursor, screen)
-			break
-		}
-
-		a.handleSelection(sequence, cursor, screen)
-		break
+	cursor := screen.ActiveCursor()
+	if cursor == nil {
+		return
 	}
+
+	if input, ok := cursor.Controls[sequence]; ok {
+		a.handleSelection(input, cursor, screen)
+		return
+	}
+
+	a.handleSelection(sequence, cursor, screen)
 }
 
 func (a *App) handleSelection(input string, cursor *Cursor, screen *Screen) {
@@ -128,8 +126,4 @@ func (a *App) handleSelection(input string, cursor *Cursor, screen *Screen) {
 	} else {
 		a.Display()
 	}
-}
-
-func clearTerm() {
-	fmt.Print("\033[H\033[J")
 }

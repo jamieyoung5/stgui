@@ -26,6 +26,16 @@ func NewScreen(cursors []*Cursor, widgets [][]Widget) *Screen {
 	}
 }
 
+// ActiveCursor returns the first non-nil cursor on the screen.
+func (s *Screen) ActiveCursor() *Cursor {
+	for _, c := range s.Cursors {
+		if c != nil {
+			return c
+		}
+	}
+	return nil
+}
+
 func (s *Screen) Render() string {
 	var builder strings.Builder
 

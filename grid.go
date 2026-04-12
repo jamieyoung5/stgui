@@ -81,9 +81,9 @@ func (g *Grid) RenderLines() []string {
 	numCols := g.width
 
 	cellBlocks := make([][][]string, numRows)
-	for r := 0; r < numRows; r++ {
+	for r := range numRows {
 		cellBlocks[r] = make([][]string, numCols)
-		for c := 0; c < numCols; c++ {
+		for c := range numCols {
 			cellBlocks[r][c] = g.Cells[r][c].RenderLines()
 		}
 	}
@@ -91,8 +91,8 @@ func (g *Grid) RenderLines() []string {
 	maxHeights := make([]int, numRows)
 	maxWidths := make([]int, numCols)
 
-	for r := 0; r < numRows; r++ {
-		for c := 0; c < numCols; c++ {
+	for r := range numRows {
+		for c := range numCols {
 			if c >= len(cellBlocks[r]) {
 				continue
 			}
