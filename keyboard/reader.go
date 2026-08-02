@@ -6,9 +6,13 @@ import (
 	"time"
 )
 
+// Keys with names. Anything else comes back as the characters typed.
 const (
 	EnterKey      = "ENTER"
 	EscapeKey     = "ESCAPE"
+	BackspaceKey  = "BACKSPACE"
+	TabKey        = "TAB"
+	CtrlCKey      = "CTRL+C"
 	UpArrowKey    = "UP"
 	DownArrowKey  = "DOWN"
 	LeftArrowKey  = "LEFT"
@@ -17,14 +21,27 @@ const (
 	keySequenceTimeout = 200 * time.Millisecond
 )
 
+// Single runes that map straight to a named key.
+var namedKeys = map[rune]string{
+	'\r':   EnterKey,
+	'\n':   EnterKey,
+	'\t':   TabKey,
+	'\x03': CtrlCKey,
+	'\x7f': BackspaceKey,
+	'\b':   BackspaceKey,
+}
+
+// ReadInput blocks until a key is pressed, resolving escape sequences like the
+// arrow keys to their names. file is the terminal behind reader, needed to time
+// out a lone Escape press.
 func ReadInput(reader *bufio.Reader, file *os.File) (string, error) {
 	rn, _, err := reader.ReadRune()
 	if err != nil {
 		return "", err
 	}
 
-	if rn == '\r' || rn == '\n' {
-		return EnterKey, nil
+	if key, ok := namedKeys[rn]; ok {
+		return key, nil
 	}
 
 	seq := string(rn)

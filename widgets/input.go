@@ -2,12 +2,20 @@ package widgets
 
 import (
 	"strings"
+	"unicode/utf8"
+
+	"github.com/jamieyoung5/stgui/keyboard"
 )
 
+// Input is a one-line text field. It collects what you type while its cell has
+// focus, and shows the placeholder until then.
 type Input struct {
 	Value       string
 	Placeholder string
 	Width       int
+
+	// Mask replaces every character of Value on screen. For passwords.
+	Mask rune
 }
 
 func NewInput(placeholder string, width int) *Input {
@@ -18,25 +26,39 @@ func NewInput(placeholder string, width int) *Input {
 	}
 }
 
+// NewMaskedInput is an Input that shows asterisks.
+func NewMaskedInput(placeholder string, width int) *Input {
+	input := NewInput(placeholder, width)
+	input.Mask = '*'
+	return input
+}
+
 func (i *Input) RenderLines() []string {
 	display := i.Value
+	if display != "" && i.Mask != 0 {
+		display = strings.Repeat(string(i.Mask), utf8.RuneCountInString(display))
+	}
 	if display == "" {
 		display = i.Placeholder
 	}
 
-	if len(display) > i.Width {
-		display = display[len(display)-i.Width:]
+	runes := []rune(display)
+	if len(runes) > i.Width {
+		// Show the end - that's where the typing is.
+		display = string(runes[len(runes)-i.Width:])
 	} else {
-		display = display + strings.Repeat("_", i.Width-len(display))
+		display += strings.Repeat("_", i.Width-len(runes))
 	}
 
 	return []string{display}
 }
 
+// HandleInput adds a character, or takes one off on backspace. Named keys and
+// escape sequences are ignored.
 func (i *Input) HandleInput(input string) {
-	if input == "\x7f" || input == "\b" {
-		if len(i.Value) > 0 {
-			i.Value = i.Value[:len(i.Value)-1]
+	if input == keyboard.BackspaceKey {
+		if runes := []rune(i.Value); len(runes) > 0 {
+			i.Value = string(runes[:len(runes)-1])
 		}
 		return
 	}
@@ -45,7 +67,7 @@ func (i *Input) HandleInput(input string) {
 		return
 	}
 
-	if len(input) == 1 {
+	if utf8.RuneCountInString(input) == 1 {
 		i.Value += input
 	}
 }

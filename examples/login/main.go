@@ -9,58 +9,68 @@ import (
 )
 
 func main() {
-	titleLabel := widgets.NewLabel(" --- SYSTEM LOGIN --- ")
+	loginScreen, err := buildLoginScreen()
+	if err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
 
-	userLabel := widgets.NewLabel("Username:")
+	if err := stgui.NewApp(loginScreen).Run(); err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+}
+
+func buildLoginScreen() (*stgui.Screen, error) {
 	userInput := widgets.NewInput("guest", 20)
-
-	passLabel := widgets.NewLabel("Password:")
-	passInput := widgets.NewInput("", 20)
-
+	passInput := widgets.NewMaskedInput("", 20)
 	statusLabel := widgets.NewLabel("Status: Idle")
 
-	loginBtn := widgets.NewButton("Login", func() {
-		if userInput.Value == "admin" && passInput.Value == "secret" {
-			statusLabel.Text = "Status: ACCESS GRANTED"
-		} else {
-			statusLabel.Text = fmt.Sprintf("Status: Denied (%s)", userInput.Value)
-		}
-	})
+	// Build the welcome screen up front; the login button points at it once the
+	// details check out.
+	welcome, err := buildWelcomeScreen()
+	if err != nil {
+		return nil, err
+	}
 
-	quitBtn := widgets.NewButton("Exit", func() {
-		fmt.Print("\033[?25h")
-		os.Exit(0)
-	})
+	loginBtn := widgets.NewButton("Login", nil)
+	loginBtn.Callback = func() {
+		if userInput.Value == "admin" && passInput.Value == "secret" {
+			loginBtn.Screen = welcome
+			return
+		}
+
+		loginBtn.Screen = nil
+		statusLabel.Text = fmt.Sprintf("Status: Denied (%s)", userInput.Value)
+	}
 
 	gridData := [][]any{
-		{nil, titleLabel, nil},
-		{userLabel, userInput, nil},
-		{passLabel, passInput, nil},
+		{nil, widgets.NewLabel(" --- SYSTEM LOGIN --- "), nil},
+		{widgets.NewLabel("Username:"), userInput, nil},
+		{widgets.NewLabel("Password:"), passInput, nil},
 		{nil, statusLabel, nil},
-		{loginBtn, nil, quitBtn},
+		{loginBtn, nil, widgets.NewQuitButton("Exit")},
 	}
 
 	grid, err := stgui.NewGrid(gridData, stgui.WithGridSymbols())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	container := widgets.NewContainer(grid)
+	// Start focused on the username field.
+	return widgets.NewScreen(grid, 1, 1), nil
+}
 
-	startRow, startCol := 1, 1
-
-	cursor := stgui.NewCursor(container, grid, startRow, startCol, stgui.DefaultDirectionalControls)
-
-	grid.Cells[startRow][startCol].Selected = true
-
-	screen := stgui.NewScreen(
-		[]*stgui.Cursor{cursor},
-		[][]stgui.Widget{{container}},
-	)
-
-	app := stgui.NewApp(screen)
-
-	if err := app.Run(); err != nil {
-		panic(err)
+func buildWelcomeScreen() (*stgui.Screen, error) {
+	gridData := [][]any{
+		{widgets.NewLabel("Access granted.\nWelcome, admin.")},
+		{widgets.NewQuitButton("Log out")},
 	}
+
+	grid, err := stgui.NewGrid(gridData, stgui.WithGridSymbols())
+	if err != nil {
+		return nil, err
+	}
+
+	return widgets.NewScreen(grid, 1, 0), nil
 }

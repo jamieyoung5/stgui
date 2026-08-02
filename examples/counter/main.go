@@ -10,11 +10,12 @@ import (
 
 func main() {
 	count := 0
-	countLabel := widgets.NewLabel(fmt.Sprintf("Current Count: %d", count))
+	countLabel := widgets.NewLabel("")
 
 	updateDisplay := func() {
 		countLabel.Text = fmt.Sprintf("Current Count: %d", count)
 	}
+	updateDisplay()
 
 	incBtn := widgets.NewButton("Increment (+)", func() {
 		count++
@@ -31,10 +32,7 @@ func main() {
 		updateDisplay()
 	})
 
-	quitBtn := widgets.NewButton("Quit", func() {
-		fmt.Print("\033[?25h")
-		os.Exit(0)
-	})
+	quitBtn := widgets.NewQuitButton("Quit")
 
 	gridData := [][]any{
 		{decBtn, countLabel, incBtn},
@@ -43,25 +41,14 @@ func main() {
 
 	grid, err := stgui.NewGrid(gridData, stgui.WithGridSymbols())
 	if err != nil {
-		panic(err)
+		fmt.Println("Error:", err)
+		os.Exit(1)
 	}
 
-	container := widgets.NewContainer(grid)
+	// Start on the label in the middle of the top row.
+	screen := widgets.NewScreen(grid, 0, 1)
 
-	startRow, startCol := 1, 1
-
-	cursor := stgui.NewCursor(container, grid, startRow, startCol, stgui.DefaultDirectionalControls)
-
-	grid.Cells[startRow][startCol].Selected = true
-
-	screen := stgui.NewScreen(
-		[]*stgui.Cursor{cursor},
-		[][]stgui.Widget{{container}},
-	)
-
-	app := stgui.NewApp(screen)
-
-	if err := app.Run(); err != nil {
+	if err := stgui.NewApp(screen).Run(); err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}

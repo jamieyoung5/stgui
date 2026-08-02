@@ -1,14 +1,14 @@
 # stgui
 
-A simple, grid-based terminal GUI library for Go.
+A small, lightweight grid-based terminal GUI library for Go.
 
 ## Installation
 
 ```bash
-go get [github.com/jamieyoung5/stgui](https://github.com/jamieyoung5/stgui)
+go get github.com/jamieyoung5/stgui
 ```
 
-## Quick Start
+## Quick start
 
 ```go
 package main
@@ -17,34 +17,25 @@ import (
 	"fmt"
 	"os"
 
-	"[github.com/jamieyoung5/stgui](https://github.com/jamieyoung5/stgui)"
-	"[github.com/jamieyoung5/stgui/widgets](https://github.com/jamieyoung5/stgui/widgets)"
+	"github.com/jamieyoung5/stgui"
+	"github.com/jamieyoung5/stgui/widgets"
 )
 
 func main() {
-	// Create Widgets
 	lbl := widgets.NewLabel("Hello World")
-	btn := widgets.NewButton("Quit", func() {
-		os.Exit(0)
-	})
+	btn := widgets.NewQuitButton("Quit")
 
-	// Define Grid Layout
-	gridData := [][]any{
+	grid, err := stgui.NewGrid([][]any{
 		{lbl},
 		{btn},
+	}, stgui.WithGridSymbols())
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	grid, _ := stgui.NewGrid(gridData, stgui.WithGridSymbols())
 
-	// Setup Container and Cursor
-	container := widgets.NewContainer(grid)
-	cursor := stgui.NewCursor(container, grid, 1, 0, stgui.DefaultDirectionalControls)
-	grid.Cells[1][0].Selected = true // Select the button initially
-
-	// Initialize Screen and App
-	screen := stgui.NewScreen(
-		[]*stgui.Cursor{cursor},
-		[][]stgui.Widget{{container}},
-	)
+	// One grid, cursor starting on the button.
+	screen := widgets.NewScreen(grid, 1, 0)
 
 	if err := stgui.NewApp(screen).Run(); err != nil {
 		fmt.Println(err)
@@ -52,3 +43,14 @@ func main() {
 	}
 }
 ```
+
+`make run EXAMPLE=<name>` runs one of `counter`, `login`, `sudoku`, `chess`.
+
+## Known limits
+
+- Every character counts as one column, so double-width CJK and combining
+  characters won't line up. Box-drawing characters and chess pieces are fine.
+- Widgets side by side in the same screen row are aligned by byte length. Keep
+  styled or non-ASCII content to one widget per row.
+- One cursor per screen: `ActiveCursor` takes the first non-nil one.
+- Frames are clipped to the terminal, so there is no wrapping, no scrolling.

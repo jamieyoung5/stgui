@@ -37,13 +37,18 @@ func listenForInput(eventChan chan Event, r *bufio.Reader) {
 	for {
 		sequence, err := keyboard.ReadInput(r, os.Stdin)
 		if err != nil {
+			// Stdin is gone. Say so and stop, or we spin forever on a reader
+			// that will never come back.
 			eventChan <- ErrorEvent{Err: err}
+			return
 		}
 
 		eventChan <- KeyPressEvent{Input: sequence}
 	}
 }
 
+// Listen starts the keyboard and resize listeners. Returns straight away, both
+// run in the background.
 func Listen(eventChan chan Event, r *bufio.Reader) {
 	go listenForInput(eventChan, r)
 	go listenForResize(eventChan)

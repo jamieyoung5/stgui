@@ -1,28 +1,33 @@
-BINARY_NAME=stgui
+EXAMPLE?=counter
 
-.PHONY: all build run test clean fmt vet
+.PHONY: all build examples run test coverage clean fmt vet check
 
-all: build
+all: check
 
 build:
+	go build ./...
+
+examples: build
 	mkdir -p bin
-	go build -o bin/$(BINARY_NAME) cmd/main.go
+	go build -o bin/ ./examples/...
 
 run:
-	go run cmd/main.go
+	go run ./examples/$(EXAMPLE)
 
 test:
-	go test -v ./...
+	go test ./...
 
 coverage:
 	go test -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out
 
 clean:
-	rm -rf bin
+	rm -rf bin coverage.out
 
 fmt:
 	go fmt ./...
 
 vet:
 	go vet ./...
+
+check: fmt vet test

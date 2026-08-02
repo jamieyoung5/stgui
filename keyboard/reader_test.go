@@ -41,6 +41,38 @@ func TestReadInput_BasicKeys(t *testing.T) {
 	}
 }
 
+func TestReadInput_NamedKeys(t *testing.T) {
+	cases := map[string]string{
+		"\t":   keyboard.TabKey,
+		"\x03": keyboard.CtrlCKey,
+		"\x7f": keyboard.BackspaceKey,
+		"\b":   keyboard.BackspaceKey,
+	}
+
+	for typed, want := range cases {
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		reader := bufio.NewReader(r)
+		go func() {
+			w.WriteString(typed)
+			w.Close()
+		}()
+
+		got, err := keyboard.ReadInput(reader, r)
+		if err != nil {
+			t.Fatalf("Failed to read %q: %v", typed, err)
+		}
+		if got != want {
+			t.Errorf("Reading %q: expected %q, got %q", typed, want, got)
+		}
+
+		r.Close()
+	}
+}
+
 func TestReadInput_Sequences(t *testing.T) {
 	r, w, err := os.Pipe()
 	if err != nil {
