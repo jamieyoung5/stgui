@@ -39,14 +39,10 @@ func main() {
 		{resetBtn, nil, quitBtn},
 	}
 
-	grid, err := stgui.NewGrid(gridData, stgui.WithGridSymbols())
-	if err != nil {
-		fmt.Println("Error:", err)
-		os.Exit(1)
-	}
+	grid := stgui.NewGrid(gridData, stgui.WithGridSymbols())
 
 	// Start on the label in the middle of the top row.
-	screen := widgets.NewScreen(grid, 0, 1)
+	screen := widgets.NewGridScreen(grid, 0, 1)
 
 	if err := stgui.NewApp(screen).Run(); err != nil {
 		fmt.Println("Error:", err)

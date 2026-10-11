@@ -22,20 +22,13 @@ import (
 )
 
 func main() {
-	lbl := widgets.NewLabel("Hello World")
-	btn := widgets.NewQuitButton("Quit")
-
-	grid, err := stgui.NewGrid([][]any{
-		{lbl},
-		{btn},
+	grid := stgui.NewGrid([][]any{
+		{widgets.NewLabel("Hello World")},
+		{widgets.NewQuitButton("Quit")},
 	}, stgui.WithGridSymbols())
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 
 	// One grid, cursor starting on the button.
-	screen := widgets.NewScreen(grid, 1, 0)
+	screen := widgets.NewGridScreen(grid, 1, 0)
 
 	if err := stgui.NewApp(screen).Run(); err != nil {
 		fmt.Println(err)
@@ -44,7 +37,76 @@ func main() {
 }
 ```
 
-`make run EXAMPLE=<name>` runs one of `counter`, `login`, `sudoku`, `chess`.
+Arrow keys move the cursor, Enter activates whatever it's on, Ctrl+C quits.
+
+## Beyond one grid
+
+A grid on its own is a screen. For more, wrap it in a `Container`, take a cursor
+off it, and stack the rows:
+
+```go
+board := widgets.NewContainer(grid).OnKey(onKey)
+
+screen := stgui.NewScreen(board.Focus(0, 0),
+	stgui.Row(widgets.NewLabel("Sudoku - 1-9 to fill, q to quit")),
+	stgui.Row(board),
+	stgui.Row(status),
+)
+
+stgui.NewApp(screen).QuitOn("q").Run()
+```
+
+`OnKey` gets the input and the cursor, so one handler covers every cell.
+
+## Keys and controls
+
+A key is what was pressed, a control is what it means. Widgets act on controls,
+so bindings are swappable:
+
+```go
+app.Bind("w", stgui.ControlUp)
+```
+
+An unbound key still reaches the widget, with no control attached - that's how
+typing works. `Input.Rune` reports false for bound keys, so a key doing a job in
+your interface is never typed into a text field as well.
+
+## Actions
+
+Every handler returns an `Action`. Screens are a stack:
+
+```go
+stgui.Stay()          // redraw, nothing else
+stgui.Push(screen)    // open on top; Close comes back here
+stgui.Replace(screen) // swap this screen out
+stgui.Close()         // back to the screen underneath, quits if last
+stgui.Quit()          // exit now
+```
+
+## Events
+
+The loop runs on events, and you can add your own:
+
+```go
+type tickEvent struct {
+	events.Msg // embed this and it's an event
+	at time.Time
+}
+
+app.OnEvent(func(event events.Event) stgui.Action {
+	if tick, ok := event.(tickEvent); ok {
+		clock.Text = tick.at.Format(time.TimeOnly)
+	}
+	return stgui.Stay()
+})
+```
+
+`app.Send(tickEvent{at: t})` is safe from any goroutine. The screen is redrawn
+after `OnEvent`, so writing to a label animates it.
+
+Widgets are `Label`, `Button`, `Input` and `Container`.
+
+`make run EXAMPLE=<name>` runs one of `counter`, `login`, `sudoku`, `clock`.
 
 ## Known limits
 
@@ -52,5 +114,5 @@ func main() {
   characters won't line up. Box-drawing characters and chess pieces are fine.
 - Widgets side by side in the same screen row are aligned by byte length. Keep
   styled or non-ASCII content to one widget per row.
-- One cursor per screen: `ActiveCursor` takes the first non-nil one.
 - Frames are clipped to the terminal, so there is no wrapping, no scrolling.
+- One cursor per screen, so there's no tabbing between two separate grids.

@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewApp(t *testing.T) {
-	screen := stgui.NewScreen(nil, nil)
+	screen := stgui.NewScreen(nil)
 	app := stgui.NewApp(screen)
 
 	if app == nil {
@@ -37,7 +37,7 @@ func TestApp_Display(t *testing.T) {
 	}()
 
 	mw := &testutil.MockWidget{RenderOutput: "WidgetOutput"}
-	screen := stgui.NewScreen(nil, [][]stgui.Widget{{mw}})
+	screen := stgui.NewScreen(nil, stgui.Row(mw))
 	app := stgui.NewApp(screen)
 
 	app.Display()
@@ -63,7 +63,7 @@ func TestApp_Display_RedrawsChangedLinesOnly(t *testing.T) {
 	defer func() { os.Stdout = oldStdout }()
 
 	mw := &testutil.MockWidget{RenderOutput: "first\nsecond"}
-	app := stgui.NewApp(stgui.NewScreen(nil, [][]stgui.Widget{{mw}}))
+	app := stgui.NewApp(stgui.NewScreen(nil, stgui.Row(mw)))
 	app.Display()
 
 	mw.RenderOutput = "first"
@@ -89,7 +89,7 @@ func TestApp_Run_WithoutTerminal(t *testing.T) {
 		t.Skip("stdin is a terminal, Run would take over the session")
 	}
 
-	err := stgui.NewApp(stgui.NewScreen(nil, nil)).Run()
+	err := stgui.NewApp(stgui.NewScreen(nil)).Run()
 	if err == nil {
 		t.Error("Expected an error when stdin is not a terminal")
 	}

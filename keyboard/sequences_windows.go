@@ -10,28 +10,28 @@ import (
 )
 
 var (
-	Sequences = map[string]string{
+	Sequences = map[string]Key{
 		// Legacy Windows Scancodes (Prefix 0 or 224 + KeyCode)
-		"\x00H": UpArrowKey,
-		"\xe0H": UpArrowKey,
-		"\x00P": DownArrowKey,
-		"\xe0P": DownArrowKey,
-		"\x00K": LeftArrowKey,
-		"\xe0K": LeftArrowKey,
-		"\x00M": RightArrowKey,
-		"\xe0M": RightArrowKey,
+		"\x00H": KeyUp,
+		"\xe0H": KeyUp,
+		"\x00P": KeyDown,
+		"\xe0P": KeyDown,
+		"\x00K": KeyLeft,
+		"\xe0K": KeyLeft,
+		"\x00M": KeyRight,
+		"\xe0M": KeyRight,
 
 		// Modern Windows Terminal (ANSI Fallback)
-		"\x1b[A": UpArrowKey,
-		"\x1b[B": DownArrowKey,
-		"\x1b[C": RightArrowKey,
-		"\x1b[D": LeftArrowKey,
+		"\x1b[A": KeyUp,
+		"\x1b[B": KeyDown,
+		"\x1b[C": KeyRight,
+		"\x1b[D": KeyLeft,
 
 		// Application Cursor Keys
-		"\x1bOA": UpArrowKey,
-		"\x1bOB": DownArrowKey,
-		"\x1bOC": RightArrowKey,
-		"\x1bOD": LeftArrowKey,
+		"\x1bOA": KeyUp,
+		"\x1bOB": KeyDown,
+		"\x1bOC": KeyRight,
+		"\x1bOD": KeyLeft,
 	}
 
 	sequencesTrie = gostrc.NewTrie(slices.Collect(maps.Keys(Sequences)))

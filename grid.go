@@ -18,7 +18,8 @@ type GridStyle struct {
 	// Align defaults to AlignLeft.
 	Align Align
 	// SelectedStyle replaces the cursor highlight, which is hard to make out
-	// against coloured cells.
+	// against coloured cells. It goes on the end of the cell's own style, so a
+	// background alone tints the cell.
 	SelectedStyle string
 
 	// Which boundaries get a divider. Nil means all of them. A sudoku marks its
@@ -37,9 +38,10 @@ type Grid struct {
 }
 
 // NewGrid builds a grid from a slice of rows. Ragged input is fine - short rows
-// are padded out with empty cells, so the grid is always rectangular. Pass a nil
-// style for no dividers and a single space between columns.
-func NewGrid(grid [][]any, style *GridStyle) (*Grid, error) {
+// are padded out with empty cells, so the grid is always rectangular. Empty input
+// gives an empty grid. Pass a nil style for no dividers and a single space
+// between columns.
+func NewGrid(grid [][]any, style *GridStyle) *Grid {
 	if style == nil {
 		style = defaultStyle()
 	}
@@ -54,7 +56,7 @@ func NewGrid(grid [][]any, style *GridStyle) (*Grid, error) {
 	}
 
 	if rows == 0 || cols == 0 {
-		return &Grid{Style: style}, nil
+		return &Grid{Style: style}
 	}
 
 	return &Grid{
@@ -62,7 +64,7 @@ func NewGrid(grid [][]any, style *GridStyle) (*Grid, error) {
 		Style:  style,
 		width:  cols,
 		height: rows,
-	}, nil
+	}
 }
 
 // NewEmptyGrid builds a rows by cols grid with nothing in it, to be filled in
@@ -198,7 +200,7 @@ func (g *Grid) RenderLines() []string {
 
 // Refresh swaps in new contents, keeping the style. The grid may end up a
 // different size, so check any cursor pointing into it afterwards.
-func (g *Grid) Refresh(grid [][]any) error {
+func (g *Grid) Refresh(grid [][]any) {
 	rows := len(grid)
 	cols := 0
 	for _, row := range grid {
@@ -210,12 +212,11 @@ func (g *Grid) Refresh(grid [][]any) error {
 	if rows == 0 || cols == 0 {
 		g.Cells = nil
 		g.width, g.height = 0, 0
-		return nil
+		return
 	}
 
 	g.Cells = createGridCells(rows, cols, grid)
 	g.width, g.height = cols, rows
-	return nil
 }
 
 // Size is the grid's dimensions in cells, as (columns, rows).
@@ -333,7 +334,7 @@ func (s *GridStyle) dividerJoin(gapWidth int) string {
 // cellStyle lets the grid's style override the cursor highlight.
 func (s *GridStyle) cellStyle(cell *Cell) string {
 	if cell.Selected && s.SelectedStyle != "" {
-		return s.SelectedStyle
+		return cell.Style + s.SelectedStyle
 	}
 	return cell.StyleSeq()
 }

@@ -5,13 +5,25 @@ import (
 	"testing"
 
 	"github.com/jamieyoung5/stgui"
-	"github.com/jamieyoung5/stgui/keyboard"
 	"github.com/jamieyoung5/stgui/widgets"
 )
 
+// typed is an unbound key press.
+func typed(key stgui.Key) stgui.Input {
+	return stgui.Input{Key: key}
+}
+
+// bound is a key press that resolved to a control.
+func bound(key stgui.Key, control stgui.Control) stgui.Input {
+	return stgui.Input{Key: key, Control: control}
+}
+
+// selected is Enter doing its default job.
+var selected = bound(stgui.KeyEnter, stgui.ControlSelect)
+
 func TestContainer(t *testing.T) {
 	data := [][]any{{"A"}}
-	g, _ := stgui.NewGrid(data, nil)
+	g := stgui.NewGrid(data, nil)
 	c := widgets.NewContainer(g)
 
 	w, h := c.Size()
@@ -24,95 +36,108 @@ func TestContainer(t *testing.T) {
 		t.Error("Render output missing grid content")
 	}
 
-	cursor := stgui.NewCursor(c, g, 0, 0, stgui.DefaultDirectionalControls)
-	c.Select(cursor, stgui.ControlDown)
-
 	clicked := false
 	btn := widgets.NewButton("Btn", func() { clicked = true })
-	gClick, _ := stgui.NewGrid([][]any{{btn}}, nil)
+	gClick := stgui.NewGrid([][]any{{btn}}, nil)
 	cClick := widgets.NewContainer(gClick)
-	cursorClick := stgui.NewCursor(cClick, gClick, 0, 0, nil)
+	cursorClick := stgui.NewCursor(cClick, gClick, 0, 0)
 
-	cClick.Select(cursorClick, keyboard.EnterKey)
+	cClick.Select(cursorClick, selected)
 	if !clicked {
-		t.Error("Container did not delegate ENTER to Clickable child")
+		t.Error("Container did not delegate ControlSelect to Clickable child")
 	}
 
 	inp := widgets.NewInput("txt", 10)
-	gInp, _ := stgui.NewGrid([][]any{{inp}}, nil)
+	gInp := stgui.NewGrid([][]any{{inp}}, nil)
 	cInp := widgets.NewContainer(gInp)
-	cursorInp := stgui.NewCursor(cInp, gInp, 0, 0, nil)
+	cursorInp := stgui.NewCursor(cInp, gInp, 0, 0)
 
-	cInp.Select(cursorInp, "X")
+	cInp.Select(cursorInp, typed("X"))
 	if inp.Value != "X" {
 		t.Error("Container did not delegate input to InputHandler child")
 	}
 }
 
 func TestContainer_Navigation(t *testing.T) {
-	g, _ := stgui.NewGrid([][]any{{"A", "B"}, {"C", "D"}}, nil)
+	g := stgui.NewGrid([][]any{{"A", "B"}, {"C", "D"}}, nil)
 	c := widgets.NewContainer(g)
-	cursor := stgui.NewCursor(c, g, 0, 0, nil)
+	cursor := stgui.NewCursor(c, g, 0, 0)
 
-	c.Select(cursor, stgui.ControlRight)
-	c.Select(cursor, stgui.ControlDown)
+	c.Select(cursor, bound(stgui.KeyRight, stgui.ControlRight))
+	c.Select(cursor, bound(stgui.KeyDown, stgui.ControlDown))
 	if cursor.Row != 1 || cursor.Col != 1 {
 		t.Fatalf("Expected the cursor at 1,1, got %d,%d", cursor.Row, cursor.Col)
 	}
 
-	c.Select(cursor, stgui.ControlLeft)
-	c.Select(cursor, stgui.ControlUp)
+	c.Select(cursor, bound(stgui.KeyLeft, stgui.ControlLeft))
+	c.Select(cursor, bound(stgui.KeyUp, stgui.ControlUp))
 	if cursor.Row != 0 || cursor.Col != 0 {
 		t.Fatalf("Expected the cursor back at 0,0, got %d,%d", cursor.Row, cursor.Col)
+	}
+}
+
+// Controls are what move the cursor, not keys: an unbound arrow key does
+// nothing, and a letter bound to a direction moves.
+func TestContainer_MovesOnControlNotKey(t *testing.T) {
+	g := stgui.NewGrid([][]any{{"A", "B"}}, nil)
+	c := widgets.NewContainer(g)
+	cursor := stgui.NewCursor(c, g, 0, 0)
+
+	c.Select(cursor, typed(stgui.KeyRight))
+	if cursor.Col != 0 {
+		t.Error("Expected an unbound right arrow not to move the cursor")
+	}
+
+	c.Select(cursor, bound("d", stgui.ControlRight))
+	if cursor.Col != 1 {
+		t.Errorf("Expected 'd' bound to right to move the cursor, col is %d", cursor.Col)
 	}
 }
 
 // A Navigator child decides where the app goes next, and the container passes
 // that decision straight back to the app.
 func TestContainer_DelegatesToNavigator(t *testing.T) {
-	next := stgui.NewScreen(nil, nil)
+	next := stgui.NewScreen(nil)
 	navBtn := widgets.NewNavButton("Go", next)
 	quitBtn := widgets.NewQuitButton("Quit")
 
-	g, _ := stgui.NewGrid([][]any{{navBtn, quitBtn}}, nil)
+	g := stgui.NewGrid([][]any{{navBtn, quitBtn}}, nil)
 	c := widgets.NewContainer(g)
-	cursor := stgui.NewCursor(c, g, 0, 0, nil)
+	cursor := stgui.NewCursor(c, g, 0, 0)
 
-	screen, exit := c.Select(cursor, keyboard.EnterKey)
-	if screen != next || !exit {
-		t.Errorf("Expected the nav button's screen, got %v exit=%v", screen, exit)
+	if got := c.Select(cursor, selected); got != stgui.Push(next) {
+		t.Errorf("Expected the nav button's action, got %v", got)
 	}
 
 	cursor.Right()
-	screen, exit = c.Select(cursor, keyboard.EnterKey)
-	if screen != nil || !exit {
-		t.Errorf("Expected the quit button to close the screen, got %v exit=%v", screen, exit)
+	if got := c.Select(cursor, selected); got != stgui.Close() {
+		t.Errorf("Expected the quit button to close the screen, got %v", got)
 	}
 }
 
 // You can put the cursor on an empty cell or a plain string, so typing at one has
 // to do nothing rather than fall over.
 func TestContainer_SelectOnNonWidgetCell(t *testing.T) {
-	g, _ := stgui.NewGrid([][]any{{"just text", nil}}, nil)
+	g := stgui.NewGrid([][]any{{"just text", nil}}, nil)
 	c := widgets.NewContainer(g)
-	cursor := stgui.NewCursor(c, g, 0, 0, nil)
+	cursor := stgui.NewCursor(c, g, 0, 0)
 
-	if screen, exit := c.Select(cursor, keyboard.EnterKey); screen != nil || exit {
-		t.Error("Expected ENTER on a plain value to do nothing")
+	if got := c.Select(cursor, selected); got != stgui.Stay() {
+		t.Errorf("Expected selecting a plain value to do nothing, got %v", got)
 	}
 
 	cursor.Right()
-	if screen, exit := c.Select(cursor, "x"); screen != nil || exit {
-		t.Error("Expected input on an empty cell to do nothing")
+	if got := c.Select(cursor, typed("x")); got != stgui.Stay() {
+		t.Errorf("Expected input on an empty cell to do nothing, got %v", got)
 	}
 }
 
-func TestNewScreen(t *testing.T) {
-	g, _ := stgui.NewGrid([][]any{{"A", "B"}}, stgui.WithGridSymbols())
+func TestNewGridScreen(t *testing.T) {
+	g := stgui.NewGrid([][]any{{"A", "B"}}, stgui.WithGridSymbols())
 
-	screen := widgets.NewScreen(g, 0, 1)
+	screen := widgets.NewGridScreen(g, 0, 1)
 
-	cursor := screen.ActiveCursor()
+	cursor := screen.Cursor
 	if cursor == nil {
 		t.Fatal("Expected the screen to have a cursor")
 	}
@@ -124,36 +149,35 @@ func TestNewScreen(t *testing.T) {
 	}
 }
 
-// OnKey is the thing that makes boards work: it sees the key and the cursor, so
-// one handler covers every cell.
+// OnKey sees the input and the cursor, so one handler covers every cell.
 func TestContainer_OnKey(t *testing.T) {
-	g, _ := stgui.NewGrid([][]any{{"a", "b"}, {"c", "d"}}, nil)
+	g := stgui.NewGrid([][]any{{"a", "b"}, {"c", "d"}}, nil)
 	c := widgets.NewContainer(g)
-	cursor := stgui.NewCursor(c, g, 0, 0, nil)
+	cursor := stgui.NewCursor(c, g, 0, 0)
 
 	type press struct {
-		input    string
+		input    stgui.Input
 		row, col int
 	}
 	var seen []press
-	c.OnKey = func(cursor *stgui.Cursor, input string) (*stgui.Screen, bool) {
+	c.OnKey(func(cursor *stgui.Cursor, input stgui.Input) stgui.Action {
 		seen = append(seen, press{input, cursor.Row, cursor.Col})
-		return nil, false
-	}
+		return stgui.Stay()
+	})
 
 	// The container keeps navigation for itself.
-	c.Select(cursor, stgui.ControlRight)
-	c.Select(cursor, "5")
-	c.Select(cursor, keyboard.EnterKey)
+	c.Select(cursor, bound(stgui.KeyRight, stgui.ControlRight))
+	c.Select(cursor, typed("5"))
+	c.Select(cursor, selected)
 
 	if len(seen) != 2 {
-		t.Fatalf("Expected 2 keys to reach OnKey, got %d: %v", len(seen), seen)
+		t.Fatalf("Expected 2 inputs to reach OnKey, got %d: %v", len(seen), seen)
 	}
-	if seen[0] != (press{"5", 0, 1}) {
+	if seen[0] != (press{typed("5"), 0, 1}) {
 		t.Errorf("Expected '5' at the moved-to cell, got %v", seen[0])
 	}
-	if seen[1].input != keyboard.EnterKey {
-		t.Errorf("Expected ENTER to reach OnKey on a plain cell, got %v", seen[1])
+	if !seen[1].input.Is(stgui.ControlSelect) {
+		t.Errorf("Expected select to reach OnKey on a plain cell, got %v", seen[1])
 	}
 }
 
@@ -161,40 +185,40 @@ func TestContainer_OnKey(t *testing.T) {
 func TestContainer_OnKeyIsAFallback(t *testing.T) {
 	input := widgets.NewInput("", 5)
 	btn := widgets.NewButton("Btn", nil)
-	g, _ := stgui.NewGrid([][]any{{input, btn}}, nil)
+	g := stgui.NewGrid([][]any{{input, btn}}, nil)
 	c := widgets.NewContainer(g)
-	cursor := stgui.NewCursor(c, g, 0, 0, nil)
+	cursor := stgui.NewCursor(c, g, 0, 0)
 
 	called := 0
-	c.OnKey = func(cursor *stgui.Cursor, key string) (*stgui.Screen, bool) {
+	c.OnKey(func(cursor *stgui.Cursor, in stgui.Input) stgui.Action {
 		called++
-		return nil, false
-	}
+		return stgui.Stay()
+	})
 
-	c.Select(cursor, "x")
+	c.Select(cursor, typed("x"))
 	if input.Value != "x" || called != 0 {
 		t.Errorf("Expected the input to take the key, value %q, OnKey calls %d", input.Value, called)
 	}
 
 	cursor.Right()
-	c.Select(cursor, keyboard.EnterKey)
+	c.Select(cursor, selected)
 	if called != 0 {
-		t.Error("Expected the button to take ENTER")
+		t.Error("Expected the button to take the selection")
 	}
 }
 
-// A board quits or moves on by returning from OnKey.
-func TestContainer_OnKeyCanExit(t *testing.T) {
-	g, _ := stgui.NewGrid([][]any{{"a"}}, nil)
+// A board quits or moves on by returning an action from OnKey.
+func TestContainer_OnKeyCanNavigate(t *testing.T) {
+	g := stgui.NewGrid([][]any{{"a"}}, nil)
 	c := widgets.NewContainer(g)
-	cursor := stgui.NewCursor(c, g, 0, 0, nil)
+	cursor := stgui.NewCursor(c, g, 0, 0)
 
-	next := stgui.NewScreen(nil, nil)
-	c.OnKey = func(cursor *stgui.Cursor, input string) (*stgui.Screen, bool) {
-		return next, true
-	}
+	next := stgui.NewScreen(nil)
+	c.OnKey(func(cursor *stgui.Cursor, input stgui.Input) stgui.Action {
+		return stgui.Replace(next)
+	})
 
-	if screen, exit := c.Select(cursor, "x"); screen != next || !exit {
-		t.Errorf("Expected OnKey's screen to be returned, got %v exit=%v", screen, exit)
+	if got := c.Select(cursor, typed("x")); got != stgui.Replace(next) {
+		t.Errorf("Expected OnKey's action to be returned, got %v", got)
 	}
 }

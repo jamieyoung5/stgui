@@ -3,7 +3,7 @@ package widgets_test
 import (
 	"testing"
 
-	"github.com/jamieyoung5/stgui/keyboard"
+	"github.com/jamieyoung5/stgui"
 	"github.com/jamieyoung5/stgui/widgets"
 )
 
@@ -14,8 +14,8 @@ func TestInput_Typing(t *testing.T) {
 		t.Errorf("Expected the placeholder padded to the width, got %q", lines[0])
 	}
 
-	for _, key := range []string{"h", "i"} {
-		in.HandleInput(key)
+	for _, key := range []stgui.Key{"h", "i"} {
+		in.HandleInput(typed(key))
 	}
 	if in.Value != "hi" {
 		t.Fatalf("Expected 'hi', got %q", in.Value)
@@ -24,13 +24,13 @@ func TestInput_Typing(t *testing.T) {
 		t.Errorf("Expected 'hi____', got %q", lines[0])
 	}
 
-	in.HandleInput(keyboard.BackspaceKey)
+	in.HandleInput(typed(stgui.KeyBackspace))
 	if in.Value != "h" {
 		t.Errorf("Expected backspace to remove the last character, got %q", in.Value)
 	}
 
-	in.HandleInput(keyboard.BackspaceKey)
-	in.HandleInput(keyboard.BackspaceKey)
+	in.HandleInput(typed(stgui.KeyBackspace))
+	in.HandleInput(typed(stgui.KeyBackspace))
 	if in.Value != "" {
 		t.Errorf("Expected backspace on an empty value to be safe, got %q", in.Value)
 	}
@@ -39,12 +39,23 @@ func TestInput_Typing(t *testing.T) {
 func TestInput_IgnoresNamedKeys(t *testing.T) {
 	in := widgets.NewInput("", 6)
 
-	for _, key := range []string{keyboard.EnterKey, keyboard.TabKey, keyboard.UpArrowKey, "\x1b[Z"} {
-		in.HandleInput(key)
+	for _, key := range []stgui.Key{stgui.KeyEnter, stgui.KeyTab, stgui.KeyUp, "\x1b[Z"} {
+		in.HandleInput(typed(key))
 	}
 
 	if in.Value != "" {
 		t.Errorf("Expected named keys and escape sequences to be ignored, got %q", in.Value)
+	}
+}
+
+// A bound key must not also be typed into the field.
+func TestInput_IgnoresBoundKeys(t *testing.T) {
+	in := widgets.NewInput("", 6)
+
+	in.HandleInput(bound("w", stgui.ControlUp))
+
+	if in.Value != "" {
+		t.Errorf("Expected a bound key not to be typed, got %q", in.Value)
 	}
 }
 
@@ -53,8 +64,8 @@ func TestInput_IgnoresNamedKeys(t *testing.T) {
 func TestInput_MultiByteCharacters(t *testing.T) {
 	in := widgets.NewInput("", 3)
 
-	for _, key := range []string{"é", "ü", "ø"} {
-		in.HandleInput(key)
+	for _, key := range []stgui.Key{"é", "ü", "ø"} {
+		in.HandleInput(typed(key))
 	}
 	if in.Value != "éüø" {
 		t.Fatalf("Expected 'éüø', got %q", in.Value)
@@ -64,7 +75,7 @@ func TestInput_MultiByteCharacters(t *testing.T) {
 		t.Errorf("Expected 'éüø' to fill the width, got %q", lines[0])
 	}
 
-	in.HandleInput(keyboard.BackspaceKey)
+	in.HandleInput(typed(stgui.KeyBackspace))
 	if in.Value != "éü" {
 		t.Errorf("Expected backspace to remove one whole rune, got %q", in.Value)
 	}
@@ -86,8 +97,8 @@ func TestInput_Masked(t *testing.T) {
 		t.Errorf("Expected the placeholder to show unmasked, got %q", lines[0])
 	}
 
-	in.HandleInput("a")
-	in.HandleInput("b")
+	in.HandleInput(typed("a"))
+	in.HandleInput(typed("b"))
 
 	if lines := in.RenderLines(); lines[0] != "**____" {
 		t.Errorf("Expected the value to be masked, got %q", lines[0])

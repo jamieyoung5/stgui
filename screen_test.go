@@ -8,16 +8,15 @@ import (
 	"github.com/jamieyoung5/stgui/testutil"
 )
 
-func TestScreen_ActiveCursor(t *testing.T) {
-	second := stgui.NewCursor(nil, nil, 0, 0, nil)
-	screen := stgui.NewScreen([]*stgui.Cursor{nil, second}, nil)
+func TestScreen_Cursor(t *testing.T) {
+	cursor := stgui.NewCursor(nil, nil, 0, 0)
 
-	if got := screen.ActiveCursor(); got != second {
-		t.Errorf("Expected the first non-nil cursor, got %v", got)
+	if got := stgui.NewScreen(cursor).Cursor; got != cursor {
+		t.Errorf("Expected the screen to hold the cursor it was built with, got %v", got)
 	}
 
-	if got := stgui.NewScreen(nil, nil).ActiveCursor(); got != nil {
-		t.Errorf("Expected no cursor on an empty screen, got %v", got)
+	if got := stgui.NewScreen(nil).Cursor; got != nil {
+		t.Errorf("Expected no cursor on a screen built without one, got %v", got)
 	}
 }
 
@@ -26,7 +25,7 @@ func TestScreen_Render(t *testing.T) {
 	right := &testutil.MockWidget{RenderOutput: "right"}
 	below := &testutil.MockWidget{RenderOutput: "below"}
 
-	screen := stgui.NewScreen(nil, [][]stgui.Widget{{left, right}, {below}})
+	screen := stgui.NewScreen(nil, stgui.Row(left, right), stgui.Row(below))
 
 	lines := strings.Split(screen.Render(), "\n")
 
@@ -44,7 +43,7 @@ func TestScreen_Render(t *testing.T) {
 }
 
 func TestScreen_Render_Empty(t *testing.T) {
-	if got := stgui.NewScreen(nil, nil).Render(); got != "" {
+	if got := stgui.NewScreen(nil).Render(); got != "" {
 		t.Errorf("Expected an empty screen to render nothing, got %q", got)
 	}
 }

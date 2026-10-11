@@ -12,9 +12,9 @@ func TestCursor_Movement(t *testing.T) {
 		{"1", "2"},
 		{"3", "4"},
 	}
-	g, _ := stgui.NewGrid(data, nil)
+	g := stgui.NewGrid(data, nil)
 
-	c := stgui.NewCursor(nil, g, 0, 0, nil)
+	c := stgui.NewCursor(nil, g, 0, 0)
 
 	c.Right()
 	if c.Row != 0 || c.Col != 1 {
@@ -56,9 +56,9 @@ func TestCursor_Movement(t *testing.T) {
 // The constructor selects the starting cell, so nobody has to reach into
 // Grid.Cells to highlight it by hand.
 func TestCursor_SelectsStartingCell(t *testing.T) {
-	g, _ := stgui.NewGrid([][]any{{"1", "2"}, {"3", "4"}}, nil)
+	g := stgui.NewGrid([][]any{{"1", "2"}, {"3", "4"}}, nil)
 
-	stgui.NewCursor(nil, g, 1, 0, nil)
+	stgui.NewCursor(nil, g, 1, 0)
 
 	if !g.Cells[1][0].Selected {
 		t.Error("Starting cell not selected")
@@ -69,9 +69,9 @@ func TestCursor_SelectsStartingCell(t *testing.T) {
 }
 
 func TestCursor_ClampsStartingPosition(t *testing.T) {
-	g, _ := stgui.NewGrid([][]any{{"1", "2"}}, nil)
+	g := stgui.NewGrid([][]any{{"1", "2"}}, nil)
 
-	c := stgui.NewCursor(nil, g, 9, -3, nil)
+	c := stgui.NewCursor(nil, g, 9, -3)
 	if c.Row != 0 || c.Col != 0 {
 		t.Errorf("Expected out-of-range start to clamp to 0,0, got %d,%d", c.Row, c.Col)
 	}
@@ -80,17 +80,9 @@ func TestCursor_ClampsStartingPosition(t *testing.T) {
 	}
 }
 
-func TestCursor_DefaultsToDirectionalControls(t *testing.T) {
-	c := stgui.NewCursor(nil, nil, 0, 0, nil)
-
-	if c.Controls["UP"] != stgui.ControlUp {
-		t.Errorf("Expected default controls, got %v", c.Controls)
-	}
-}
-
 // No grid, but the app will still call these on whatever the screen holds.
 func TestCursor_NoGrid(t *testing.T) {
-	c := stgui.NewCursor(nil, nil, 0, 0, nil)
+	c := stgui.NewCursor(nil, nil, 0, 0)
 
 	c.Up()
 	c.Down()
@@ -100,17 +92,17 @@ func TestCursor_NoGrid(t *testing.T) {
 	if cell := c.Cell(); cell != nil {
 		t.Errorf("Expected no cell without a grid, got %v", cell)
 	}
-	if screen, exit := c.Select("ENTER"); screen != nil || exit {
-		t.Error("Expected Select on a widgetless cursor to do nothing")
+	if got := c.Select(stgui.Input{Key: stgui.KeyEnter}); got != stgui.Stay() {
+		t.Errorf("Expected Select on a widgetless cursor to do nothing, got %v", got)
 	}
 }
 
 func TestCursor_Select(t *testing.T) {
 	mw := &testutil.MockWidget{}
-	c := stgui.NewCursor(mw, nil, 0, 0, nil)
+	c := stgui.NewCursor(mw, nil, 0, 0)
 
-	c.Select("ENTER")
-	if mw.LastInput != "ENTER" {
-		t.Errorf("Select input not passed to widget")
+	c.Select(stgui.Input{Key: stgui.KeyEnter, Control: stgui.ControlSelect})
+	if mw.LastInput.Key != stgui.KeyEnter || !mw.LastInput.Is(stgui.ControlSelect) {
+		t.Errorf("Select input not passed to widget, got %+v", mw.LastInput)
 	}
 }

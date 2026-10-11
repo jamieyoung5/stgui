@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/jamieyoung5/stgui"
-	"github.com/jamieyoung5/stgui/keyboard"
 	"github.com/jamieyoung5/stgui/widgets"
 )
 
@@ -65,25 +64,27 @@ func newBoard(puzzle string) *board {
 	return b
 }
 
-// onKey gets every key the container didn't use to move, plus the cursor, so it
-// always knows which square we're on.
-func (b *board) onKey(cursor *stgui.Cursor, input string) (*stgui.Screen, bool) {
+// onKey gets every input the container didn't use to move, plus the cursor, so
+// it always knows which square we're on.
+func (b *board) onKey(cursor *stgui.Cursor, input stgui.Input) stgui.Action {
 	row, col := cursor.Row, cursor.Col
 	if b.given[row][col] {
-		return nil, false
+		return stgui.Stay()
 	}
 
+	digit, typed := input.Rune()
+
 	switch {
-	case len(input) == 1 && input[0] >= '1' && input[0] <= '9':
-		b.values[row][col] = int(input[0] - '0')
-	case input == "0" || input == " " || input == keyboard.BackspaceKey:
+	case typed && digit >= '1' && digit <= '9':
+		b.values[row][col] = int(digit - '0')
+	case digit == '0' || digit == ' ' || input.Key == stgui.KeyBackspace:
 		b.values[row][col] = 0
 	default:
-		return nil, false
+		return stgui.Stay()
 	}
 
 	b.draw()
-	return nil, false
+	return stgui.Stay()
 }
 
 // draw pushes the game into the grid: what's in each square, and a colour for
@@ -173,23 +174,15 @@ func (b *board) clashes() [size][size]bool {
 func main() {
 	b := newBoard(puzzle)
 
-	container := widgets.NewContainer(b.grid)
-	container.OnKey = b.onKey
-	cursor := container.Focus(0, 0)
+	board := widgets.NewContainer(b.grid).OnKey(b.onKey)
 
-	screen := stgui.NewScreen(
-		[]*stgui.Cursor{cursor},
-		[][]stgui.Widget{
-			{widgets.NewText(widgets.NewLabel("Sudoku - 1-9 to fill, 0 to clear, q to quit"))},
-			{container},
-			{widgets.NewText(b.status)},
-		},
+	screen := stgui.NewScreen(board.Focus(0, 0),
+		stgui.Row(widgets.NewLabel("Sudoku - 1-9 to fill, 0 to clear, q to quit")),
+		stgui.Row(board),
+		stgui.Row(b.status),
 	)
 
-	app := stgui.NewApp(screen)
-	app.QuitKeys = append(app.QuitKeys, "q")
-
-	if err := app.Run(); err != nil {
+	if err := stgui.NewApp(screen).QuitOn("q").Run(); err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}

@@ -18,47 +18,53 @@ func TestButton(t *testing.T) {
 		t.Errorf("Unexpected RenderLines output: %v", lines)
 	}
 
-	btn.OnClick()
+	// Plain button: runs the callback, stays put.
+	if got := btn.OnActivate(); got != stgui.Stay() {
+		t.Errorf("Expected a plain button to stay put, got %v", got)
+	}
 	if !clicked {
-		t.Error("Callback not triggered on OnClick")
+		t.Error("Callback not triggered on activate")
 	}
 
-	safeBtn := widgets.NewButton("Safe", nil)
-	safeBtn.OnClick()
-
-	// Plain button: runs the callback, stays put.
-	if screen, exit := btn.OnActivate(); screen != nil || exit {
-		t.Errorf("Expected a plain button not to change screens, got %v exit=%v", screen, exit)
+	// A button with no callback at all mustn't fall over.
+	if got := widgets.NewButton("Safe", nil).OnActivate(); got != stgui.Stay() {
+		t.Errorf("Expected a callback-less button to stay put, got %v", got)
 	}
 }
 
 func TestQuitButton(t *testing.T) {
-	screen, exit := widgets.NewQuitButton("Quit").OnActivate()
-	if screen != nil || !exit {
-		t.Errorf("Expected the quit button to close the screen, got %v exit=%v", screen, exit)
+	if got := widgets.NewQuitButton("Quit").OnActivate(); got != stgui.Close() {
+		t.Errorf("Expected the quit button to close the screen, got %v", got)
 	}
 }
 
 func TestNavButton(t *testing.T) {
-	next := stgui.NewScreen(nil, nil)
+	next := stgui.NewScreen(nil)
 	btn := widgets.NewNavButton("Go", next)
 
-	screen, exit := btn.OnActivate()
-	if screen != next {
-		t.Errorf("Expected the button's screen, got %v", screen)
-	}
-	if !exit {
-		t.Error("Expected navigating to close the current screen")
+	if got := btn.OnActivate(); got != stgui.Push(next) {
+		t.Errorf("Expected the button to push its screen, got %v", got)
 	}
 }
 
-// Callback first, so it can pick where to go based on what the press just did.
-func TestButton_CallbackSetsScreen(t *testing.T) {
-	next := stgui.NewScreen(nil, nil)
-	btn := widgets.NewButton("Login", nil)
-	btn.Callback = func() { btn.Screen = next }
+// An action button picks where to go when it's pressed.
+func TestActionButton(t *testing.T) {
+	next := stgui.NewScreen(nil)
+	allow := false
 
-	if screen, exit := btn.OnActivate(); screen != next || !exit {
-		t.Errorf("Expected the callback's screen, got %v exit=%v", screen, exit)
+	btn := widgets.NewActionButton("Login", func() stgui.Action {
+		if !allow {
+			return stgui.Stay()
+		}
+		return stgui.Push(next)
+	})
+
+	if got := btn.OnActivate(); got != stgui.Stay() {
+		t.Errorf("Expected the button to stay put while denied, got %v", got)
+	}
+
+	allow = true
+	if got := btn.OnActivate(); got != stgui.Push(next) {
+		t.Errorf("Expected the button to push once allowed, got %v", got)
 	}
 }

@@ -11,14 +11,19 @@ import (
 
 	"github.com/jamieyoung5/gostrc"
 	"github.com/jamieyoung5/stgui/events"
-	"github.com/jamieyoung5/stgui/keyboard"
 	"golang.org/x/term"
 )
+
+// EventHandler takes an event the app doesn't recognise.
+type EventHandler func(event events.Event) Action
 
 const (
 	clearScreen = "\033[H\033[J"
 	hideCursor  = "\033[?25l"
 	showCursor  = "\033[?25h"
+
+	// Room for a burst of events before Send blocks.
+	eventBuffer = 64
 )
 
 // App owns the terminal and runs the event loop over a stack of screens. Only the
@@ -27,8 +32,17 @@ type App struct {
 	Screens *gostrc.Stack[*Screen]
 
 	// QuitKeys get you out whatever the focused widget would have done with
-	// them. Ctrl+C by default; nil forces an in-app quit action.
-	QuitKeys []string
+	// them. Ctrl+C by default; nil forces an in-app quit.
+	QuitKeys []Key
+
+	// Bindings map keys onto controls for every screen. Arrow keys and Enter
+	// by default.
+	Bindings Bindings
+
+	onEvent   EventHandler
+	eventChan chan events.Event
+	done      chan struct{}
+	quitting  bool
 
 	lastBuffer    []string
 	width, height int
@@ -41,8 +55,44 @@ func NewApp(screen *Screen) *App {
 	}
 
 	return &App{
-		Screens:  screenStack,
-		QuitKeys: []string{keyboard.CtrlCKey},
+		Screens:   screenStack,
+		QuitKeys:  []Key{KeyCtrlC},
+		Bindings:  DefaultBindings(),
+		eventChan: make(chan events.Event, eventBuffer),
+		done:      make(chan struct{}),
+	}
+}
+
+// OnEvent sets the handler for events the app doesn't recognise. The screen is
+// redrawn afterwards.
+func (a *App) OnEvent(handler EventHandler) *App {
+	a.onEvent = handler
+	return a
+}
+
+// Bind points a key at a control, for every screen. A bound key can't be typed
+// into an Input.
+func (a *App) Bind(key Key, control Control) *App {
+	if a.Bindings == nil {
+		a.Bindings = Bindings{}
+	}
+	a.Bindings[key] = control
+
+	return a
+}
+
+// QuitOn adds keys that get you out of the app, on top of the default Ctrl+C.
+func (a *App) QuitOn(keys ...Key) *App {
+	a.QuitKeys = append(a.QuitKeys, keys...)
+	return a
+}
+
+// Send hands an event to the running app, from any goroutine. It returns once
+// the app has the event, or immediately if the app has quit.
+func (a *App) Send(event events.Event) {
+	select {
+	case a.eventChan <- event:
+	case <-a.done:
 	}
 }
 
@@ -91,19 +141,20 @@ func (a *App) Run() error {
 	}
 	defer a.restore(fd, oldState)
 
-	a.readTerminalSize()
+	// Unblocks anything waiting in Send.
+	defer close(a.done)
 
-	eventChan := make(chan events.Event)
-	events.Listen(eventChan, bufio.NewReader(os.Stdin))
+	a.readTerminalSize()
+	events.Listen(a.eventChan, bufio.NewReader(os.Stdin))
 
 	a.Display()
-	for !a.Screens.IsEmpty() {
-		switch event := (<-eventChan).(type) {
+	for !a.Screens.IsEmpty() && !a.quitting {
+		switch event := (<-a.eventChan).(type) {
 		case events.KeyPressEvent:
-			if a.isQuitKey(event.Input) {
+			if a.isQuitKey(event.Key) {
 				return nil
 			}
-			a.handleInput(event.Input)
+			a.handleInput(event.Key)
 		case events.ResizeEvent:
 			a.handleResize(event)
 		case events.ErrorEvent:
@@ -114,7 +165,7 @@ func (a *App) Run() error {
 			}
 			return event.Err
 		default:
-			return fmt.Errorf("stgui: received unknown event %T", event)
+			a.handleEvent(event)
 		}
 	}
 
@@ -128,8 +179,8 @@ func (a *App) restore(fd int, oldState *term.State) {
 	term.Restore(fd, oldState)
 }
 
-func (a *App) isQuitKey(input string) bool {
-	return slices.Contains(a.QuitKeys, input)
+func (a *App) isQuitKey(key Key) bool {
+	return slices.Contains(a.QuitKeys, key)
 }
 
 // fit clips the frame to the terminal. A line that wraps would shove everything
@@ -165,40 +216,46 @@ func (a *App) readTerminalSize() {
 	}
 }
 
-func (a *App) handleInput(sequence string) {
-	screen := a.Screens.Peek()
-	cursor := screen.ActiveCursor()
-	if cursor == nil {
+// handleEvent passes an unrecognised event to OnEvent, if a handler is set.
+func (a *App) handleEvent(event events.Event) {
+	if a.onEvent == nil {
 		return
 	}
 
-	input := sequence
-	if mapped, ok := cursor.Controls[sequence]; ok {
-		input = mapped
-	}
-
-	a.handleSelection(input, cursor, screen)
+	a.apply(a.onEvent(event))
 }
 
-func (a *App) handleSelection(input string, cursor *Cursor, screen *Screen) {
-	nextScreen, exit := cursor.Select(input)
+func (a *App) handleInput(key Key) {
+	screen := a.Screens.Peek()
+	if screen == nil || screen.Cursor == nil {
+		return
+	}
 
-	if exit {
-		if nextScreen == nil || !screen.Persist {
-			a.Screens.Pop()
-		}
-		if nextScreen != nil {
-			a.Screens.Push(nextScreen)
-		}
+	a.apply(screen.Cursor.Select(Input{Key: key, Control: a.Bindings[key]}))
+}
 
-		// That was the last screen, so we're on the way out. Leave the frame
-		// alone for restore to park the cursor after.
-		if a.Screens.IsEmpty() {
-			return
-		}
+// apply carries out what a widget asked for and redraws.
+func (a *App) apply(action Action) {
+	switch action.kind {
+	case actionPush:
+		a.Screens.Push(action.screen)
+	case actionReplace:
+		a.Screens.Pop()
+		a.Screens.Push(action.screen)
+	case actionClose:
+		a.Screens.Pop()
+	case actionQuit:
+		a.quitting = true
+	}
 
+	if action.kind != actionStay {
 		// Nothing on the new screen lines up with the old one. Start over.
 		a.lastBuffer = nil
+	}
+
+	// Leave the last frame alone for restore to park the cursor after.
+	if a.quitting || a.Screens.IsEmpty() {
+		return
 	}
 
 	a.Display()

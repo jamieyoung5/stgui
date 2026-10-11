@@ -18,8 +18,8 @@ type Cell struct {
 	Value any
 	Child Renderable
 
-	// Style wraps the whole cell in an ANSI sequence - Bg256(94) for a dark
-	// square, say. Ignored while the cell is selected.
+	// Style wraps the whole cell in an ANSI sequence - Bg256(137) for a dark
+	// square, say.
 	Style string
 
 	Selected bool
@@ -39,10 +39,11 @@ func (c *Cell) IsEmpty() bool {
 	return c.Child == nil && c.Value == nil
 }
 
-// StyleSeq is the sequence the cell draws with. Selection beats Style.
+// StyleSeq is the sequence the cell draws with. The selection highlight goes on
+// the end of the cell's own style.
 func (c *Cell) StyleSeq() string {
 	if c.Selected {
-		return selectedStyle
+		return c.Style + selectedStyle
 	}
 	return c.Style
 }

@@ -1,49 +1,24 @@
 package stgui
 
-import "github.com/jamieyoung5/stgui/keyboard"
-
-// Navigation commands. Controls maps keys onto these and widgets act on the
-// commands, not the keys, which is what keeps bindings swappable.
-const (
-	ControlUp    = "UP"
-	ControlDown  = "DOWN"
-	ControlLeft  = "LEFT"
-	ControlRight = "RIGHT"
-)
-
-// DefaultDirectionalControls is just the arrow keys. Copy and extend it to add
-// your own, e.g. "w": ControlUp.
-var DefaultDirectionalControls = map[string]string{
-	keyboard.UpArrowKey:    ControlUp,
-	keyboard.DownArrowKey:  ControlDown,
-	keyboard.LeftArrowKey:  ControlLeft,
-	keyboard.RightArrowKey: ControlRight,
-}
-
 // Cursor is the focused cell of a grid. A screen's input goes through the
 // cursor's widget, which decides what to make of it.
+//
+// Keys are bound to controls on the App, not here.
 type Cursor struct {
 	widget Widget
 	grid   *Grid
 	Row    int
 	Col    int
-
-	Controls map[string]string
 }
 
 // NewCursor focuses (row, col) and marks that cell selected. The position is
-// clamped to the grid; nil controls means the arrow keys.
-func NewCursor(widget Widget, grid *Grid, row, col int, controls map[string]string) *Cursor {
-	if controls == nil {
-		controls = DefaultDirectionalControls
-	}
-
+// clamped to the grid.
+func NewCursor(widget Widget, grid *Grid, row, col int) *Cursor {
 	c := &Cursor{
-		widget:   widget,
-		grid:     grid,
-		Row:      row,
-		Col:      col,
-		Controls: controls,
+		widget: widget,
+		grid:   grid,
+		Row:    row,
+		Col:    col,
 	}
 
 	c.clamp()
@@ -52,11 +27,10 @@ func NewCursor(widget Widget, grid *Grid, row, col int, controls map[string]stri
 	return c
 }
 
-// Select hands input to the widget: where to go next, and whether this screen is
-// done with.
-func (c *Cursor) Select(input string) (screen *Screen, exit bool) {
+// Select hands input to the widget and returns what it wants the app to do.
+func (c *Cursor) Select(input Input) Action {
 	if c.widget == nil {
-		return nil, false
+		return Stay()
 	}
 	return c.widget.Select(c, input)
 }
