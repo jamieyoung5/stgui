@@ -13,10 +13,8 @@ func TestGrid_NewGrid(t *testing.T) {
 		{"A", "B", "C"},
 		{"D", "E", "F"},
 	}
-	g, err := stgui.NewGrid(data, nil)
-	if err != nil {
-		t.Fatalf("NewGrid failed: %v", err)
-	}
+	g := stgui.NewGrid(data, nil)
+
 	w, h := g.Size()
 	if w != 3 || h != 2 {
 		t.Errorf("Expected size 3x2 (cols x rows), got %dx%d", w, h)
@@ -27,10 +25,8 @@ func TestGrid_NewGrid(t *testing.T) {
 }
 
 func TestGrid_NewGrid_Empty(t *testing.T) {
-	g, err := stgui.NewGrid([][]any{}, nil)
-	if err != nil {
-		t.Fatalf("NewGrid failed on empty: %v", err)
-	}
+	g := stgui.NewGrid([][]any{}, nil)
+
 	if g.Cells != nil {
 		t.Error("Expected nil Cells for empty grid")
 	}
@@ -38,7 +34,7 @@ func TestGrid_NewGrid_Empty(t *testing.T) {
 
 // Used to panic: NewGrid left Style nil on an empty grid.
 func TestGrid_RenderLines_Empty(t *testing.T) {
-	g, _ := stgui.NewGrid([][]any{}, stgui.WithGridSymbols())
+	g := stgui.NewGrid([][]any{}, stgui.WithGridSymbols())
 
 	lines := g.RenderLines()
 	if len(lines) != 1 || lines[0] != "." {
@@ -56,10 +52,7 @@ func TestGrid_NewGrid_Ragged(t *testing.T) {
 		{"A"},
 		{"B", "C"},
 	}
-	g, err := stgui.NewGrid(data, nil)
-	if err != nil {
-		t.Fatalf("NewGrid failed on ragged: %v", err)
-	}
+	g := stgui.NewGrid(data, nil)
 
 	w, h := g.Size()
 	if w != 2 || h != 2 {
@@ -84,7 +77,7 @@ func TestGrid_Render(t *testing.T) {
 		Intersection:      "+",
 		NoValue:           ".",
 	}
-	g, _ := stgui.NewGrid(data, style)
+	g := stgui.NewGrid(data, style)
 
 	output := g.RenderLines()
 	if len(output) != 1 {
@@ -102,7 +95,7 @@ func TestGrid_Render_MultiRow(t *testing.T) {
 		{"C", "D"},
 	}
 	style := stgui.WithGridSymbols()
-	g, _ := stgui.NewGrid(data, style)
+	g := stgui.NewGrid(data, style)
 
 	output := g.RenderLines()
 	if len(output) != 3 {
@@ -118,7 +111,7 @@ func TestGrid_Render_MultiRow(t *testing.T) {
 // widget taller than that ran off the end.
 func TestGrid_Render_TallCell(t *testing.T) {
 	tall := &testutil.MockRenderable{Lines: []string{"1", "2", "3"}}
-	g, _ := stgui.NewGrid([][]any{
+	g := stgui.NewGrid([][]any{
 		{tall, "x"},
 		{"C", "D"},
 	}, stgui.WithGridSymbols())
@@ -146,7 +139,7 @@ func TestGrid_Render_TallCell(t *testing.T) {
 
 // No divider characters, no divider lines - not blank ones.
 func TestGrid_Render_NoStyleHasNoBlankRows(t *testing.T) {
-	g, _ := stgui.NewGrid([][]any{
+	g := stgui.NewGrid([][]any{
 		{"A", "B"},
 		{"C", "D"},
 	}, nil)
@@ -158,11 +151,8 @@ func TestGrid_Render_NoStyleHasNoBlankRows(t *testing.T) {
 }
 
 func TestGrid_Refresh(t *testing.T) {
-	g, _ := stgui.NewGrid([][]any{{"A"}}, nil)
-	err := g.Refresh([][]any{{"B", "C"}})
-	if err != nil {
-		t.Fatalf("Refresh failed: %v", err)
-	}
+	g := stgui.NewGrid([][]any{{"A"}}, nil)
+	g.Refresh([][]any{{"B", "C"}})
 
 	if len(g.Cells) != 1 || len(g.Cells[0]) != 2 {
 		t.Errorf("Cells dimensions not updated correctly. Got %dx%d", len(g.Cells), len(g.Cells[0]))
@@ -171,9 +161,7 @@ func TestGrid_Refresh(t *testing.T) {
 		t.Errorf("Expected first cell to be 'B', got %v", g.Cells[0][0].Value)
 	}
 
-	if err := g.Refresh(nil); err != nil {
-		t.Fatalf("Refresh failed on empty: %v", err)
-	}
+	g.Refresh(nil)
 	if w, h := g.Size(); w != 0 || h != 0 {
 		t.Errorf("Expected an empty grid after refreshing with no rows, got %dx%d", w, h)
 	}
@@ -262,7 +250,7 @@ func TestGrid_StyleFillsCell(t *testing.T) {
 
 func TestGrid_MinCellWidthAndAlign(t *testing.T) {
 	style := &stgui.GridStyle{MinCellWidth: 5, Align: stgui.AlignCenter}
-	g, _ := stgui.NewGrid([][]any{{"A", "B"}}, style)
+	g := stgui.NewGrid([][]any{{"A", "B"}}, style)
 
 	// Two five-column cells, touching: the style sets no divider.
 	if line := g.RenderLines()[0]; line != "  A    B  " {
@@ -303,23 +291,23 @@ func TestGrid_EmptyCellsUseStyleNoValue(t *testing.T) {
 func TestGrid_DividerDrawnAsWritten(t *testing.T) {
 	data := [][]any{{"A", "B"}}
 
-	tight, _ := stgui.NewGrid(data, &stgui.GridStyle{VerticalDivider: "|"})
+	tight := stgui.NewGrid(data, &stgui.GridStyle{VerticalDivider: "|"})
 	if line := tight.RenderLines()[0]; line != "A|B" {
 		t.Errorf("Expected 'A|B', got %q", line)
 	}
 
-	spaced, _ := stgui.NewGrid(data, &stgui.GridStyle{VerticalDivider: " | "})
+	spaced := stgui.NewGrid(data, &stgui.GridStyle{VerticalDivider: " | "})
 	if line := spaced.RenderLines()[0]; line != "A | B" {
 		t.Errorf("Expected 'A | B', got %q", line)
 	}
 
-	none, _ := stgui.NewGrid(data, &stgui.GridStyle{})
+	none := stgui.NewGrid(data, &stgui.GridStyle{})
 	if line := none.RenderLines()[0]; line != "AB" {
 		t.Errorf("Expected touching cells, got %q", line)
 	}
 
 	// Nil style: readable without asking for a divider.
-	plain, _ := stgui.NewGrid(data, nil)
+	plain := stgui.NewGrid(data, nil)
 	if line := plain.RenderLines()[0]; line != "A B" {
 		t.Errorf("Expected 'A B' by default, got %q", line)
 	}

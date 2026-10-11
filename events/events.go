@@ -7,35 +7,36 @@ import (
 	"github.com/jamieyoung5/stgui/keyboard"
 )
 
+// Event is anything the app loop can be handed. Embed Msg to make your own;
+// the app passes events it doesn't recognise to App.OnEvent.
 type Event interface {
 	IsMsg()
 }
 
+// Msg is the marker to embed in your own events.
 type Msg struct{}
 
 func (m Msg) IsMsg() {}
 
 type ErrorEvent struct {
-	Err error
 	Msg
+	Err error
 }
 
-func (e ErrorEvent) IsMsg() {}
-
 type KeyPressEvent struct {
-	Input string
 	Msg
+	Key keyboard.Key
 }
 
 type ResizeEvent struct {
+	Msg
 	Width  int
 	Height int
-	Msg
 }
 
 func listenForInput(eventChan chan Event, r *bufio.Reader) {
 	for {
-		sequence, err := keyboard.ReadInput(r, os.Stdin)
+		key, err := keyboard.ReadInput(r, os.Stdin)
 		if err != nil {
 			// Stdin is gone. Say so and stop, or we spin forever on a reader
 			// that will never come back.
@@ -43,7 +44,7 @@ func listenForInput(eventChan chan Event, r *bufio.Reader) {
 			return
 		}
 
-		eventChan <- KeyPressEvent{Input: sequence}
+		eventChan <- KeyPressEvent{Key: key}
 	}
 }
 

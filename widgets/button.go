@@ -6,56 +6,53 @@ import (
 	"github.com/jamieyoung5/stgui"
 )
 
-// Button runs a callback on Enter, and can move to another screen or close the
-// current one on the way.
+// Button does something when selected. What it does is fixed when you make
+// it.
 type Button struct {
-	Label    string
-	Callback func()
+	// Label is what's drawn.
+	Label string
 
-	// Screen to go to when pressed. It replaces the current screen, or stacks
-	// on top of it if that one has Persist set.
-	Screen *stgui.Screen
-	// Exit closes the current screen, quitting if it's the last one open.
-	Exit bool
+	activate func() stgui.Action
 }
 
+// NewButton makes a button that runs callback and stays on this screen.
 func NewButton(label string, callback func()) *Button {
-	return &Button{
-		Label:    label,
-		Callback: callback,
-	}
+	return NewActionButton(label, func() stgui.Action {
+		if callback != nil {
+			callback()
+		}
+		return stgui.Stay()
+	})
 }
 
-// NewNavButton makes a button that takes you to next.
+// NewActionButton makes a button that decides where the app goes when
+// pressed. Use it when the answer depends on the state of the screen.
+func NewActionButton(label string, activate func() stgui.Action) *Button {
+	return &Button{Label: label, activate: activate}
+}
+
+// NewNavButton makes a button that opens next on top of the current screen.
+// Closing next comes back here.
 func NewNavButton(label string, next *stgui.Screen) *Button {
-	return &Button{
-		Label:  label,
-		Screen: next,
-	}
+	return NewActionButton(label, func() stgui.Action {
+		return stgui.Push(next)
+	})
 }
 
-// NewQuitButton makes a button that closes the current screen. Quit this way
-// rather than with os.Exit, or the terminal is left in raw mode.
+// NewQuitButton makes a button that closes the current screen, quitting if it's
+// the last one open. Quit this way rather than with os.Exit, or the terminal is
+// left in raw mode.
 func NewQuitButton(label string) *Button {
-	return &Button{
-		Label: label,
-		Exit:  true,
-	}
+	return NewActionButton(label, stgui.Close)
 }
 
 func (b *Button) RenderLines() []string {
 	return []string{fmt.Sprintf("[ %s ]", b.Label)}
 }
 
-func (b *Button) OnClick() {
-	if b.Callback != nil {
-		b.Callback()
+func (b *Button) OnActivate() stgui.Action {
+	if b.activate == nil {
+		return stgui.Stay()
 	}
-}
-
-// OnActivate runs the callback first, then reads Screen and Exit - so a callback
-// can decide where the button goes.
-func (b *Button) OnActivate() (*stgui.Screen, bool) {
-	b.OnClick()
-	return b.Screen, b.Exit || b.Screen != nil
+	return b.activate()
 }

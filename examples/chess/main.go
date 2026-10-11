@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/jamieyoung5/stgui"
-	"github.com/jamieyoung5/stgui/keyboard"
 	"github.com/jamieyoung5/stgui/widgets"
 )
 
@@ -76,11 +75,11 @@ func newGame() *game {
 	return g
 }
 
-// onKey runs for anything the container didn't use to move the cursor. Only Enter
-// means anything, and it means two different things.
-func (g *game) onKey(cursor *stgui.Cursor, input string) (*stgui.Screen, bool) {
-	if input != keyboard.EnterKey {
-		return nil, false
+// onKey runs for anything the container didn't use to move the cursor. Only
+// selecting means anything, and it means two different things.
+func (g *game) onKey(cursor *stgui.Cursor, input stgui.Input) stgui.Action {
+	if !input.Is(stgui.ControlSelect) {
+		return stgui.Stay()
 	}
 
 	row, col := cursor.Row, cursor.Col
@@ -108,7 +107,7 @@ func (g *game) onKey(cursor *stgui.Cursor, input string) (*stgui.Screen, bool) {
 	}
 
 	g.draw()
-	return nil, false
+	return stgui.Stay()
 }
 
 // draw lays the pieces out and colours the squares, marking the one a held piece
@@ -147,23 +146,15 @@ func square(row, col int) string {
 func main() {
 	g := newGame()
 
-	board := widgets.NewContainer(g.grid)
-	board.OnKey = g.onKey
-	cursor := board.Focus(size-2, 4) // e2
+	board := widgets.NewContainer(g.grid).OnKey(g.onKey)
 
-	screen := stgui.NewScreen(
-		[]*stgui.Cursor{cursor},
-		[][]stgui.Widget{
-			{widgets.NewText(widgets.NewLabel("Chess - Enter to pick up and put down, q to quit"))},
-			{board},
-			{widgets.NewText(g.status)},
-		},
+	screen := stgui.NewScreen(board.Focus(size-2, 4), // e2
+		stgui.Row(widgets.NewLabel("Chess - Enter to pick up and put down, q to quit")),
+		stgui.Row(board),
+		stgui.Row(g.status),
 	)
 
-	app := stgui.NewApp(screen)
-	app.QuitKeys = append(app.QuitKeys, "q")
-
-	if err := app.Run(); err != nil {
+	if err := stgui.NewApp(screen).QuitOn("q").Run(); err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}

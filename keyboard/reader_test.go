@@ -36,17 +36,17 @@ func TestReadInput_BasicKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read input: %v", err)
 	}
-	if got != keyboard.EnterKey {
+	if got != keyboard.KeyEnter {
 		t.Errorf("Expected EnterKey, got %q", got)
 	}
 }
 
 func TestReadInput_NamedKeys(t *testing.T) {
-	cases := map[string]string{
-		"\t":   keyboard.TabKey,
-		"\x03": keyboard.CtrlCKey,
-		"\x7f": keyboard.BackspaceKey,
-		"\b":   keyboard.BackspaceKey,
+	cases := map[string]keyboard.Key{
+		"\t":   keyboard.KeyTab,
+		"\x03": keyboard.KeyCtrlC,
+		"\x7f": keyboard.KeyBackspace,
+		"\b":   keyboard.KeyBackspace,
 	}
 
 	for typed, want := range cases {
@@ -92,7 +92,7 @@ func TestReadInput_Sequences(t *testing.T) {
 		t.Fatalf("Failed to read input: %v", err)
 	}
 
-	if got != keyboard.UpArrowKey {
+	if got != keyboard.KeyUp {
 		t.Errorf("Expected UpArrowKey, got %q", got)
 	}
 }
@@ -119,7 +119,7 @@ func TestReadInput_EscapeTimeout(t *testing.T) {
 		t.Fatalf("Failed to read input: %v", err)
 	}
 
-	if got != keyboard.EscapeKey {
+	if got != keyboard.KeyEscape {
 		t.Errorf("Expected EscapeKey, got %q", got)
 	}
 
@@ -148,7 +148,7 @@ func TestReadInput_UnknownSequence(t *testing.T) {
 		t.Fatalf("Failed to read input: %v", err)
 	}
 
-	if got != rawSeq {
+	if string(got) != rawSeq {
 		t.Errorf("Expected raw sequence %q, got %q", rawSeq, got)
 	}
 }

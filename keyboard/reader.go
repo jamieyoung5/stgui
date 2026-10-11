@@ -4,37 +4,59 @@ import (
 	"bufio"
 	"os"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
+
+// Key is one press. Named keys use the constants below; anything else is the
+// characters typed.
+type Key string
 
 // Keys with names. Anything else comes back as the characters typed.
 const (
-	EnterKey      = "ENTER"
-	EscapeKey     = "ESCAPE"
-	BackspaceKey  = "BACKSPACE"
-	TabKey        = "TAB"
-	CtrlCKey      = "CTRL+C"
-	UpArrowKey    = "UP"
-	DownArrowKey  = "DOWN"
-	LeftArrowKey  = "LEFT"
-	RightArrowKey = "RIGHT"
-
-	keySequenceTimeout = 200 * time.Millisecond
+	KeyEnter     Key = "ENTER"
+	KeyEscape    Key = "ESCAPE"
+	KeyBackspace Key = "BACKSPACE"
+	KeyTab       Key = "TAB"
+	KeyCtrlC     Key = "CTRL+C"
+	KeyUp        Key = "UP"
+	KeyDown      Key = "DOWN"
+	KeyLeft      Key = "LEFT"
+	KeyRight     Key = "RIGHT"
 )
 
+const keySequenceTimeout = 200 * time.Millisecond
+
+// Rune is the character typed, and whether there was one. Named keys and
+// escape sequences report false.
+func (k Key) Rune() (rune, bool) {
+	r, size := utf8.DecodeRuneInString(string(k))
+	if size != len(k) || r == utf8.RuneError {
+		return 0, false
+	}
+
+	// A lone control character is a key press, not text.
+	if unicode.IsControl(r) {
+		return 0, false
+	}
+
+	return r, true
+}
+
 // Single runes that map straight to a named key.
-var namedKeys = map[rune]string{
-	'\r':   EnterKey,
-	'\n':   EnterKey,
-	'\t':   TabKey,
-	'\x03': CtrlCKey,
-	'\x7f': BackspaceKey,
-	'\b':   BackspaceKey,
+var namedKeys = map[rune]Key{
+	'\r':   KeyEnter,
+	'\n':   KeyEnter,
+	'\t':   KeyTab,
+	'\x03': KeyCtrlC,
+	'\x7f': KeyBackspace,
+	'\b':   KeyBackspace,
 }
 
 // ReadInput blocks until a key is pressed, resolving escape sequences like the
 // arrow keys to their names. file is the terminal behind reader, needed to time
 // out a lone Escape press.
-func ReadInput(reader *bufio.Reader, file *os.File) (string, error) {
+func ReadInput(reader *bufio.Reader, file *os.File) (Key, error) {
 	rn, _, err := reader.ReadRune()
 	if err != nil {
 		return "", err
@@ -47,7 +69,7 @@ func ReadInput(reader *bufio.Reader, file *os.File) (string, error) {
 	seq := string(rn)
 
 	if !sequencesTrie.StartsWith(seq) {
-		return seq, nil
+		return Key(seq), nil
 	}
 
 	for {
@@ -57,15 +79,15 @@ func ReadInput(reader *bufio.Reader, file *os.File) (string, error) {
 		}
 
 		if ok := sequencesTrie.StartsWith(seq); !ok {
-			return seq, nil
+			return Key(seq), nil
 		}
 
 		nextRn, err := readRuneWithDeadline(reader, file, keySequenceTimeout)
 		if err != nil {
 			if seq == "\x1b" {
-				return EscapeKey, nil
+				return KeyEscape, nil
 			}
-			return seq, nil
+			return Key(seq), nil
 		}
 		seq += string(nextRn)
 	}

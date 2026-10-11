@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/jamieyoung5/stgui/keyboard"
+	"github.com/jamieyoung5/stgui"
 )
 
 // Input is a one-line text field. It collects what you type while its cell has
@@ -53,21 +53,17 @@ func (i *Input) RenderLines() []string {
 	return []string{display}
 }
 
-// HandleInput adds a character, or takes one off on backspace. Named keys and
-// escape sequences are ignored.
-func (i *Input) HandleInput(input string) {
-	if input == keyboard.BackspaceKey {
+// HandleInput adds a character, or takes one off on backspace. Named keys,
+// escape sequences and bound keys are ignored.
+func (i *Input) HandleInput(input stgui.Input) {
+	if input.Key == stgui.KeyBackspace {
 		if runes := []rune(i.Value); len(runes) > 0 {
 			i.Value = string(runes[:len(runes)-1])
 		}
 		return
 	}
 
-	if strings.HasPrefix(input, "\x1b") {
-		return
-	}
-
-	if utf8.RuneCountInString(input) == 1 {
-		i.Value += input
+	if r, ok := input.Rune(); ok {
+		i.Value += string(r)
 	}
 }

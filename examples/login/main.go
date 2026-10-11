@@ -9,40 +9,30 @@ import (
 )
 
 func main() {
-	loginScreen, err := buildLoginScreen()
-	if err != nil {
-		fmt.Println("Error:", err)
-		os.Exit(1)
-	}
-
-	if err := stgui.NewApp(loginScreen).Run(); err != nil {
+	if err := stgui.NewApp(buildLoginScreen()).Run(); err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
 }
 
-func buildLoginScreen() (*stgui.Screen, error) {
+func buildLoginScreen() *stgui.Screen {
 	userInput := widgets.NewInput("guest", 20)
 	passInput := widgets.NewMaskedInput("", 20)
 	statusLabel := widgets.NewLabel("Status: Idle")
 
 	// Build the welcome screen up front; the login button points at it once the
 	// details check out.
-	welcome, err := buildWelcomeScreen()
-	if err != nil {
-		return nil, err
-	}
+	welcome := buildWelcomeScreen()
 
-	loginBtn := widgets.NewButton("Login", nil)
-	loginBtn.Callback = func() {
+	// Checks the inputs when pressed, and decides where to go from there.
+	loginBtn := widgets.NewActionButton("Login", func() stgui.Action {
 		if userInput.Value == "admin" && passInput.Value == "secret" {
-			loginBtn.Screen = welcome
-			return
+			return stgui.Push(welcome)
 		}
 
-		loginBtn.Screen = nil
 		statusLabel.Text = fmt.Sprintf("Status: Denied (%s)", userInput.Value)
-	}
+		return stgui.Stay()
+	})
 
 	gridData := [][]any{
 		{nil, widgets.NewLabel(" --- SYSTEM LOGIN --- "), nil},
@@ -52,25 +42,19 @@ func buildLoginScreen() (*stgui.Screen, error) {
 		{loginBtn, nil, widgets.NewQuitButton("Exit")},
 	}
 
-	grid, err := stgui.NewGrid(gridData, stgui.WithGridSymbols())
-	if err != nil {
-		return nil, err
-	}
+	grid := stgui.NewGrid(gridData, stgui.WithGridSymbols())
 
 	// Start focused on the username field.
-	return widgets.NewScreen(grid, 1, 1), nil
+	return widgets.NewGridScreen(grid, 1, 1)
 }
 
-func buildWelcomeScreen() (*stgui.Screen, error) {
+func buildWelcomeScreen() *stgui.Screen {
 	gridData := [][]any{
 		{widgets.NewLabel("Access granted.\nWelcome, admin.")},
 		{widgets.NewQuitButton("Log out")},
 	}
 
-	grid, err := stgui.NewGrid(gridData, stgui.WithGridSymbols())
-	if err != nil {
-		return nil, err
-	}
+	grid := stgui.NewGrid(gridData, stgui.WithGridSymbols())
 
-	return widgets.NewScreen(grid, 1, 0), nil
+	return widgets.NewGridScreen(grid, 1, 0)
 }
