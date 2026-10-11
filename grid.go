@@ -18,7 +18,8 @@ type GridStyle struct {
 	// Align defaults to AlignLeft.
 	Align Align
 	// SelectedStyle replaces the cursor highlight, which is hard to make out
-	// against coloured cells.
+	// against coloured cells. It goes on the end of the cell's own style, so a
+	// background on its own tints the cell and leaves its contents alone.
 	SelectedStyle string
 
 	// Which boundaries get a divider. Nil means all of them. A sudoku marks its
@@ -333,7 +334,7 @@ func (s *GridStyle) dividerJoin(gapWidth int) string {
 // cellStyle lets the grid's style override the cursor highlight.
 func (s *GridStyle) cellStyle(cell *Cell) string {
 	if cell.Selected && s.SelectedStyle != "" {
-		return s.SelectedStyle
+		return cell.Style + s.SelectedStyle
 	}
 	return cell.StyleSeq()
 }
