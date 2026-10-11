@@ -1,6 +1,6 @@
 EXAMPLE?=counter
 
-.PHONY: all build examples run test coverage clean fmt vet check
+.PHONY: all build examples run test bench coverage clean fmt vet check
 
 all: check
 
@@ -16,6 +16,9 @@ run:
 
 test:
 	go test ./...
+
+bench:
+	go test -run '^$$' -bench . -benchmem -count 10 .
 
 coverage:
 	go test -coverprofile=coverage.out ./...

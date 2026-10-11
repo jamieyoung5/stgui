@@ -1,6 +1,10 @@
 package stgui_test
 
 import (
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jamieyoung5/stgui"
@@ -81,5 +85,42 @@ func TestCell_IsEmpty(t *testing.T) {
 	}
 	if (&stgui.Cell{Value: 0}).IsEmpty() {
 		t.Error("Expected a cell holding a value not to be empty")
+	}
+}
+
+// Cells render common value types without going through fmt, so the output has
+// to still match what fmt would have given.
+func TestCell_Value_MatchesFmt(t *testing.T) {
+	type named string
+
+	values := []any{
+		"text", 42, -7, rune('a'), int32(97), int64(1 << 40), true, false,
+		3.5, named("named"), []int{1, 2}, errors.New("boom"), nil,
+	}
+
+	for _, value := range values {
+		cell := &stgui.Cell{Value: value}
+
+		want := fmt.Sprint(value)
+		if value == nil {
+			// A cell with no value draws the placeholder instead.
+			want = "."
+		}
+
+		got := strings.Join(cell.RenderLines(), "\n")
+		if got != want {
+			t.Errorf("Value %#v: expected %q, got %q", value, want, got)
+		}
+	}
+}
+
+func TestCell_Value_Multiline(t *testing.T) {
+	cell := &stgui.Cell{Value: "a\nb\nc"}
+
+	got := cell.RenderLines()
+	want := []string{"a", "b", "c"}
+
+	if !slices.Equal(got, want) {
+		t.Errorf("Expected %q, got %q", want, got)
 	}
 }

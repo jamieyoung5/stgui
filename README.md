@@ -112,7 +112,5 @@ Widgets are `Label`, `Button`, `Input` and `Container`.
 
 - Every character counts as one column, so double-width CJK and combining
   characters won't line up. Box-drawing characters and chess pieces are fine.
-- Widgets side by side in the same screen row are aligned by byte length. Keep
-  styled or non-ASCII content to one widget per row.
 - Frames are clipped to the terminal, so there is no wrapping, no scrolling.
 - One cursor per screen, so there's no tabbing between two separate grids.

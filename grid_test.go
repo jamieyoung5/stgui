@@ -1,6 +1,7 @@
 package stgui_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -355,5 +356,27 @@ func TestGrid_SelectedStyleOverride(t *testing.T) {
 
 	if line := g.RenderLines()[0]; line != stgui.StyleBGGreen+"x\033[0m" {
 		t.Errorf("Expected the style's highlight, got %q", line)
+	}
+}
+
+// Grids reuse their scratch buffers between frames. A frame has to come out the
+// same every time, and an earlier frame must not change underneath the caller -
+// the app diffs the new frame against the one it kept.
+func TestGrid_RenderLines_FramesAreIndependent(t *testing.T) {
+	grid := stgui.NewGrid([][]any{{"a", "bb"}, {"ccc", "d"}}, stgui.WithGridSymbols())
+
+	first := grid.RenderLines()
+	kept := append([]string(nil), first...)
+
+	second := grid.RenderLines()
+
+	if !slices.Equal(first, kept) {
+		t.Errorf("Expected the first frame to be left alone, got %q, want %q", first, kept)
+	}
+	if !slices.Equal(second, kept) {
+		t.Errorf("Expected both frames to match, got %q, want %q", second, kept)
+	}
+	if len(first) > 0 && &first[0] == &second[0] {
+		t.Error("Expected each frame to get its own slice, got the same backing array")
 	}
 }
