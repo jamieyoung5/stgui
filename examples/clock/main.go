@@ -1,6 +1,5 @@
-// Clock: a screen that redraws without anyone touching the keyboard. A goroutine
-// sends a tick, OnEvent picks it up and writes to a label, and the app draws the
-// new frame.
+// Clock: a screen that redraws without anyone touching the keyboard. A
+// goroutine sends a tick and OnEvent writes it to a label.
 package main
 
 import (
@@ -35,8 +34,7 @@ func main() {
 		stgui.Row(quit),
 	)
 
-	// Anything the app doesn't recognise lands in OnEvent, and the screen is
-	// redrawn afterwards.
+	// Anything the app doesn't recognise lands in OnEvent.
 	app := stgui.NewApp(screen).QuitOn("q").OnEvent(func(event events.Event) stgui.Action {
 		tick, ok := event.(tickEvent)
 		if !ok {

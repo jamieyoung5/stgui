@@ -40,8 +40,7 @@ func (c *Cell) IsEmpty() bool {
 }
 
 // StyleSeq is the sequence the cell draws with. The selection highlight goes on
-// the end of the cell's own style, so a highlight setting only a background
-// leaves the foreground alone and the cell's contents keep their colour.
+// the end of the cell's own style.
 func (c *Cell) StyleSeq() string {
 	if c.Selected {
 		return c.Style + selectedStyle

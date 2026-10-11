@@ -7,8 +7,7 @@ import (
 	"github.com/jamieyoung5/stgui/keyboard"
 )
 
-// Event is anything the app loop can be handed. Embed Msg to make your own;
-// the app passes events it doesn't recognise to App.OnEvent.
+// Event is anything the app loop can be handed. Embed Msg to make your own.
 type Event interface {
 	IsMsg()
 }

@@ -6,8 +6,7 @@ import (
 	"github.com/jamieyoung5/stgui"
 )
 
-// Button does something when selected. What it does is fixed when you make
-// it.
+// Button does something when selected. What it does is fixed when you make it.
 type Button struct {
 	// Label is what's drawn.
 	Label string
@@ -25,23 +24,20 @@ func NewButton(label string, callback func()) *Button {
 	})
 }
 
-// NewActionButton makes a button that decides where the app goes when
-// pressed. Use it when the answer depends on the state of the screen.
+// NewActionButton makes a button that decides where the app goes when pressed.
 func NewActionButton(label string, activate func() stgui.Action) *Button {
 	return &Button{Label: label, activate: activate}
 }
 
 // NewNavButton makes a button that opens next on top of the current screen.
-// Closing next comes back here.
 func NewNavButton(label string, next *stgui.Screen) *Button {
 	return NewActionButton(label, func() stgui.Action {
 		return stgui.Push(next)
 	})
 }
 
-// NewQuitButton makes a button that closes the current screen, quitting if it's
-// the last one open. Quit this way rather than with os.Exit, or the terminal is
-// left in raw mode.
+// NewQuitButton makes a button that closes the current screen. Quit this way
+// rather than os.Exit, or the terminal is left in raw mode.
 func NewQuitButton(label string) *Button {
 	return NewActionButton(label, stgui.Close)
 }

@@ -19,7 +19,7 @@ type GridStyle struct {
 	Align Align
 	// SelectedStyle replaces the cursor highlight, which is hard to make out
 	// against coloured cells. It goes on the end of the cell's own style, so a
-	// background on its own tints the cell and leaves its contents alone.
+	// background alone tints the cell.
 	SelectedStyle string
 
 	// Which boundaries get a divider. Nil means all of them. A sudoku marks its

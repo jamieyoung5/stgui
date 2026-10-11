@@ -7,8 +7,7 @@ type Clickable interface {
 	OnClick()
 }
 
-// Navigator is a widget that decides where the app goes when the cursor selects
-// it - Push a screen, Close this one, or Stay put.
+// Navigator is a widget that decides where the app goes when selected.
 //
 // Navigator wins over Clickable, so if a widget is both, OnActivate has to do
 // the click as well.

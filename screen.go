@@ -11,8 +11,8 @@ import (
 type Widget interface {
 	// Render draws the widget, lines separated by "\n".
 	Render() string
-	// Select handles one input and returns what the app should do next.
-	// Stay() carries on with the current screen.
+	// Select handles one input and returns what to do next. Stay() carries on
+	// with the current screen.
 	Select(cursor *Cursor, input Input) Action
 }
 

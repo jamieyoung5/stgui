@@ -143,8 +143,7 @@ func TestApp_Quit_StopsWithScreensLeft(t *testing.T) {
 	}
 }
 
-// A bound key reaches the widget as a control; an unbound one still arrives, so
-// typing keeps working.
+// A bound key reaches the widget as a control, an unbound one as a plain key.
 func TestApp_HandleInput_AppliesBindings(t *testing.T) {
 	discardStdout(t)
 

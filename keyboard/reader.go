@@ -27,8 +27,8 @@ const (
 
 const keySequenceTimeout = 200 * time.Millisecond
 
-// Rune is the character typed, and whether there was one. Named keys and
-// escape sequences report false.
+// Rune is the character typed, if there was one. Named keys and escape
+// sequences report false.
 func (k Key) Rune() (rune, bool) {
 	r, size := utf8.DecodeRuneInString(string(k))
 	if size != len(k) || r == utf8.RuneError {

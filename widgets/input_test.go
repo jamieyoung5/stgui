@@ -48,8 +48,7 @@ func TestInput_IgnoresNamedKeys(t *testing.T) {
 	}
 }
 
-// A key doing a job elsewhere in the interface must not also be typed into the
-// field, or binding "w" to a direction would fill every input with w's.
+// A bound key must not also be typed into the field.
 func TestInput_IgnoresBoundKeys(t *testing.T) {
 	in := widgets.NewInput("", 6)
 

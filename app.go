@@ -14,7 +14,7 @@ import (
 	"golang.org/x/term"
 )
 
-// EventHandler takes an event the app doesn't recognise, one you sent yourself.
+// EventHandler takes an event the app doesn't recognise.
 type EventHandler func(event events.Event) Action
 
 const (
@@ -22,7 +22,7 @@ const (
 	hideCursor  = "\033[?25l"
 	showCursor  = "\033[?25h"
 
-	// Room for a burst from a goroutine before Send starts waiting.
+	// Room for a burst of events before Send blocks.
 	eventBuffer = 64
 )
 
@@ -63,16 +63,15 @@ func NewApp(screen *Screen) *App {
 	}
 }
 
-// OnEvent sets the handler for events the app doesn't know about, the ones you
-// Send yourself. The screen is redrawn afterwards, so writing to a label is
-// enough to animate it.
+// OnEvent sets the handler for events the app doesn't recognise. The screen is
+// redrawn afterwards.
 func (a *App) OnEvent(handler EventHandler) *App {
 	a.onEvent = handler
 	return a
 }
 
-// Bind points a key at a control, for every screen. Binding a key takes it
-// away from typing, so don't bind letters on a screen with an Input on it.
+// Bind points a key at a control, for every screen. A bound key can't be typed
+// into an Input.
 func (a *App) Bind(key Key, control Control) *App {
 	if a.Bindings == nil {
 		a.Bindings = Bindings{}
@@ -89,8 +88,7 @@ func (a *App) QuitOn(keys ...Key) *App {
 }
 
 // Send hands an event to the running app, from any goroutine. It returns once
-// the app has the event, or straight away if the app has already quit, so a
-// sending goroutine never leaks.
+// the app has the event, or immediately if the app has quit.
 func (a *App) Send(event events.Event) {
 	select {
 	case a.eventChan <- event:
@@ -143,7 +141,7 @@ func (a *App) Run() error {
 	}
 	defer a.restore(fd, oldState)
 
-	// Lets anything blocked in Send go, once we stop reading.
+	// Unblocks anything waiting in Send.
 	defer close(a.done)
 
 	a.readTerminalSize()
@@ -218,8 +216,7 @@ func (a *App) readTerminalSize() {
 	}
 }
 
-// handleEvent passes an event we don't recognise to OnEvent. An app without
-// one ignores it.
+// handleEvent passes an unrecognised event to OnEvent, if a handler is set.
 func (a *App) handleEvent(event events.Event) {
 	if a.onEvent == nil {
 		return
@@ -256,8 +253,7 @@ func (a *App) apply(action Action) {
 		a.lastBuffer = nil
 	}
 
-	// On the way out, leave the frame alone for restore to park the cursor
-	// after.
+	// Leave the last frame alone for restore to park the cursor after.
 	if a.quitting || a.Screens.IsEmpty() {
 		return
 	}

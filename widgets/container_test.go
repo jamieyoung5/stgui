@@ -8,7 +8,7 @@ import (
 	"github.com/jamieyoung5/stgui/widgets"
 )
 
-// typed is an unbound key press - what a widget sees when you type.
+// typed is an unbound key press.
 func typed(key stgui.Key) stgui.Input {
 	return stgui.Input{Key: key}
 }

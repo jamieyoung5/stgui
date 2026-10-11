@@ -18,8 +18,7 @@ func TestLabel(t *testing.T) {
 	}
 }
 
-// A label doubles as a top-level widget, so a title or status line doesn't need
-// wrapping in anything.
+// A label doubles as a top-level widget.
 func TestLabel_AsWidget(t *testing.T) {
 	lbl := widgets.NewLabel("status\nline two")
 

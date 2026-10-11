@@ -47,8 +47,7 @@ func TestNavButton(t *testing.T) {
 	}
 }
 
-// An action button picks where to go when it's pressed, so it can decide from
-// the state of the screen rather than being wired up in advance.
+// An action button picks where to go when it's pressed.
 func TestActionButton(t *testing.T) {
 	next := stgui.NewScreen(nil)
 	allow := false

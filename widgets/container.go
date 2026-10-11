@@ -29,17 +29,7 @@ func (c *Container) OnKey(handler KeyHandler) *Container {
 }
 
 // NewGridScreen wraps a grid in a container and a cursor at (row, col), for when
-// the screen is nothing but the one grid.
-//
-// Build it yourself for anything more. A board with a title and a status line:
-//
-//	board := widgets.NewContainer(grid)
-//	cursor := board.Focus(0, 0)
-//	screen := stgui.NewScreen(cursor,
-//		stgui.Row(widgets.NewLabel(title)),
-//		stgui.Row(board),
-//		stgui.Row(status),
-//	)
+// the screen is nothing but the one grid. Build it yourself for anything more.
 func NewGridScreen(grid *stgui.Grid, row, col int) *stgui.Screen {
 	container := NewContainer(grid)
 
@@ -59,10 +49,9 @@ func (c *Container) Render() string {
 	return c.Grid.Render()
 }
 
-// Select moves the cursor on a directional control. Otherwise it looks at the
-// focused cell: ControlSelect activates a Navigator or Clickable child, anything
-// else goes to an InputHandler child. Whatever is left falls through to the
-// OnKey handler.
+// Select moves the cursor on a directional control. Otherwise ControlSelect
+// activates a Navigator or Clickable child, anything else goes to an
+// InputHandler child, and what's left falls through to OnKey.
 func (c *Container) Select(cursor *stgui.Cursor, input stgui.Input) stgui.Action {
 	switch input.Control {
 	case stgui.ControlUp:

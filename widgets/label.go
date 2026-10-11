@@ -6,8 +6,8 @@ import (
 	"github.com/jamieyoung5/stgui"
 )
 
-// Label is a piece of text. It works in a grid cell and as a screen row on
-// its own, and ignores input either way.
+// Label is a piece of text. It works in a grid cell and as a screen row, and
+// ignores input.
 type Label struct {
 	Text string
 }

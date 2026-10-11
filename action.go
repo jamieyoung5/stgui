@@ -1,8 +1,7 @@
 package stgui
 
-// Action is what a widget asks the app to do once it has handled an input.
-// Screens live on a stack: Push puts one on top of the current one, Replace
-// swaps it out. The zero value is Stay.
+// Action is what a widget asks the app to do with an input. Screens are a
+// stack. The zero value, Action{}, does the same as Stay().
 type Action struct {
 	kind   actionKind
 	screen *Screen
@@ -23,8 +22,7 @@ func Stay() Action {
 	return Action{kind: actionStay}
 }
 
-// Push opens screen on top of the current one, which stays on the stack for
-// Close to come back to. A nil screen stays put.
+// Push opens screen on top of the current one. A nil screen stays put.
 func Push(screen *Screen) Action {
 	if screen == nil {
 		return Stay()
@@ -32,8 +30,7 @@ func Push(screen *Screen) Action {
 	return Action{kind: actionPush, screen: screen}
 }
 
-// Replace swaps the current screen for screen, with no coming back. A nil
-// screen stays put.
+// Replace swaps the current screen for screen. A nil screen stays put.
 func Replace(screen *Screen) Action {
 	if screen == nil {
 		return Stay()
@@ -46,7 +43,7 @@ func Close() Action {
 	return Action{kind: actionClose}
 }
 
-// Quit tears the app down, whatever is on the stack.
+// Quit exits the app, whatever is on the stack.
 func Quit() Action {
 	return Action{kind: actionQuit}
 }
