@@ -11,9 +11,21 @@ func VisibleWidth(s string) int {
 	width := 0
 
 	for i := 0; i < len(s); {
-		if seq := ansiSequenceAt(s[i:]); seq != "" {
-			i += len(seq)
+		c := s[i]
+
+		// Plain ASCII first: that is most of what a terminal draws, and it
+		// costs one byte and one column.
+		if c < utf8.RuneSelf && c != escape {
+			i++
+			width++
 			continue
+		}
+
+		if c == escape {
+			if seq := ansiSequenceAt(s[i:]); seq != "" {
+				i += len(seq)
+				continue
+			}
 		}
 
 		_, size := utf8.DecodeRuneInString(s[i:])
@@ -22,17 +34,6 @@ func VisibleWidth(s string) int {
 	}
 
 	return width
-}
-
-func maxVisibleWidth(lines []string) int {
-	widest := 0
-	for _, line := range lines {
-		if w := VisibleWidth(line); w > widest {
-			widest = w
-		}
-	}
-
-	return widest
 }
 
 // truncateVisible cuts line down to width columns. Escapes are kept, since they
@@ -73,10 +74,12 @@ func truncateVisible(line string, width int) string {
 	return sb.String()
 }
 
+const escape = '\x1b'
+
 // ansiSequenceAt returns the escape sequence at the start of s, or "" if there
 // isn't one there.
 func ansiSequenceAt(s string) string {
-	if len(s) < 2 || s[0] != '\x1b' || s[1] != '[' {
+	if len(s) < 2 || s[0] != escape || s[1] != '[' {
 		return ""
 	}
 

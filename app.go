@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 	"slices"
-	"strings"
+	"strconv"
 
 	"github.com/jamieyoung5/gostrc"
 	"github.com/jamieyoung5/stgui/events"
@@ -44,6 +44,7 @@ type App struct {
 	done      chan struct{}
 	quitting  bool
 
+	out           *bufio.Writer
 	lastBuffer    []string
 	width, height int
 }
@@ -104,29 +105,44 @@ func (a *App) Display() {
 		return
 	}
 
-	lines := a.fit(strings.Split(screen.Render(), "\n"))
+	lines := a.fit(screen.renderLines())
 
-	bw := bufio.NewWriter(os.Stdout)
+	if a.out == nil {
+		a.out = bufio.NewWriter(os.Stdout)
+	}
+	bw := a.out
+
 	if a.lastBuffer == nil {
 		bw.WriteString(clearScreen)
 		bw.WriteString(hideCursor)
 	}
 
+	var esc [16]byte
 	for i, line := range lines {
 		if i < len(a.lastBuffer) && a.lastBuffer[i] == line {
 			continue
 		}
 
-		fmt.Fprintf(bw, "\033[%d;1H\033[K%s", i+1, line)
+		bw.Write(appendMoveTo(esc[:0], i+1))
+		bw.WriteString(line)
 	}
 
 	// Wipe anything the last frame left behind.
 	for i := len(lines); i < len(a.lastBuffer); i++ {
-		fmt.Fprintf(bw, "\033[%d;1H\033[K", i+1)
+		bw.Write(appendMoveTo(esc[:0], i+1))
 	}
 
 	bw.Flush()
 	a.lastBuffer = lines
+}
+
+// appendMoveTo is the escape that parks the cursor at the start of row and clears
+// the line. Built by hand: it runs for every changed line of every frame.
+func appendMoveTo(dst []byte, row int) []byte {
+	dst = append(dst, '\033', '[')
+	dst = strconv.AppendInt(dst, int64(row), 10)
+
+	return append(dst, ';', '1', 'H', '\033', '[', 'K')
 }
 
 // Run takes over the terminal and handles events until the screen stack empties,
@@ -185,6 +201,8 @@ func (a *App) isQuitKey(key Key) bool {
 
 // fit clips the frame to the terminal. A line that wraps would shove everything
 // below it down a row and throw the whole diff out.
+//
+// Clipped in place: the frame is freshly rendered and nothing else holds it.
 func (a *App) fit(lines []string) []string {
 	if a.height > 0 && len(lines) > a.height {
 		lines = lines[:a.height]
@@ -194,12 +212,13 @@ func (a *App) fit(lines []string) []string {
 		return lines
 	}
 
-	fitted := make([]string, len(lines))
 	for i, line := range lines {
-		fitted[i] = truncateVisible(line, a.width)
+		if VisibleWidth(line) > a.width {
+			lines[i] = truncateVisible(line, a.width)
+		}
 	}
 
-	return fitted
+	return lines
 }
 
 func (a *App) handleResize(event events.ResizeEvent) {

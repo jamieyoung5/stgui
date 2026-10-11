@@ -35,6 +35,13 @@ type Grid struct {
 	Style *GridStyle
 
 	width, height int
+
+	// Scratch reused between frames, so drawing is single-goroutine.
+	blocks     blockBuf
+	rowHeights []int
+	colWidths  []int
+	gaps       []string
+	lineEnds   []int
 }
 
 // NewGrid builds a grid from a slice of rows. Ragged input is fine - short rows
@@ -118,6 +125,10 @@ func WithBoxSymbols(cellWidth int) *GridStyle {
 	}
 }
 
+// Render draws the grid as one string, lines separated by "\n".
+//
+// A grid keeps scratch space between frames, so one grid can't be drawn from two
+// goroutines at once.
 func (g *Grid) Render() string {
 	return strings.Join(g.RenderLines(), "\n")
 }
@@ -132,25 +143,28 @@ func (g *Grid) RenderLines() []string {
 
 	numRows, numCols := g.height, g.width
 
-	cellBlocks := make([][][]string, numRows)
-	rowHeights := make([]int, numRows)
-	colWidths := make([]int, numCols)
+	// Measure every cell unstyled. Padding is written inside the cell's style
+	// below, so the colour covers it.
+	g.blocks.reset(numRows * numCols)
+	rowHeights := resetInts(&g.rowHeights, numRows)
+	colWidths := resetInts(&g.colWidths, numCols)
 
+	styleWidth := 0
 	for r := range numRows {
-		cellBlocks[r] = make([][]string, numCols)
 		for c := range numCols {
-			// Measure and pad while unstyled, then style at the end, so the
-			// colour covers the padding and not just the text.
-			block := g.Cells[r][c].content(style.NoValue)
-			cellBlocks[r][c] = block
+			cell := g.Cells[r][c]
 
-			if h := len(block); h > rowHeights[r] {
-				rowHeights[r] = h
-			}
-			if w := maxVisibleWidth(block); w > colWidths[c] {
-				colWidths[c] = w
-			}
+			h, w := g.blocks.add(cell, style.NoValue)
+			rowHeights[r] = max(rowHeights[r], h)
+			colWidths[c] = max(colWidths[c], w)
+			styleWidth = max(styleWidth, len(cell.Style))
 		}
+	}
+
+	// What a styled cell adds to a line, for sizing the buffer below. Nothing
+	// at all when no cell carries a style.
+	if styleWidth > 0 {
+		styleWidth += len(resetStyle)
 	}
 
 	for c := range numCols {
@@ -158,41 +172,73 @@ func (g *Grid) RenderLines() []string {
 	}
 
 	// Work out each boundary separately: a style can mark some and skip others.
-	gaps := make([]string, max(numCols-1, 0))
-	for c := range gaps {
-		gaps[c] = style.columnDivider(c)
+	gaps := resetStrings(&g.gaps, max(numCols-1, 0))
+	rowWidth := 0
+	for c := range numCols {
+		rowWidth += colWidths[c]
+		if c < numCols-1 {
+			gaps[c] = style.columnDivider(c)
+			rowWidth += len(gaps[c])
+		}
 	}
 
-	output := make([]string, 0, numRows)
+	totalLines := 0
+	for r := range numRows {
+		totalLines += rowHeights[r]
+		if r < numRows-1 && style.drawsRowDivider(r) {
+			totalLines++
+		}
+	}
+
+	// One buffer for the whole frame, sliced into lines at the end. Go strings
+	// share their backing array, so the frame costs one allocation and not one
+	// per line.
+	var sb strings.Builder
+	sb.Grow(totalLines*(rowWidth+numCols*styleWidth) + len(selectedStyle) + len(resetStyle))
+
+	ends := g.lineEnds[:0]
+	divider := ""
 
 	for r := range numRows {
-		padded := make([][]string, numCols)
-		for c := range numCols {
-			block := padBlock(cellBlocks[r][c], rowHeights[r], colWidths[c], style.Align)
-			padded[c] = applyStyle(block, style.cellStyle(g.Cells[r][c]))
-		}
-
 		for line := range rowHeights[r] {
-			var sb strings.Builder
 			for c := range numCols {
-				sb.WriteString(padded[c][line])
+				text, width := g.blocks.at(r*numCols+c, line)
+				writeCell(&sb, text, width, colWidths[c], style.Align, style.cellStyle(g.Cells[r][c]))
+
 				if c < numCols-1 {
 					sb.WriteString(gaps[c])
 				}
 			}
-			output = append(output, sb.String())
+
+			ends = append(ends, sb.Len())
 		}
 
 		if r < numRows-1 && style.drawsRowDivider(r) {
-			var sb strings.Builder
-			for c := range numCols {
-				sb.WriteString(strings.Repeat(style.filler(), colWidths[c]))
-				if c < numCols-1 {
-					sb.WriteString(style.dividerJoin(VisibleWidth(gaps[c])))
-				}
+			// Every divider is the same, so build one and point at it again.
+			if divider == "" {
+				divider = style.dividerLine(colWidths, gaps)
 			}
-			output = append(output, sb.String())
+
+			// A negative end marks the divider rather than a slice of the
+			// frame, which keeps the one copy of it.
+			ends = append(ends, -1)
 		}
+	}
+
+	g.lineEnds = ends
+
+	frame := sb.String()
+	output := make([]string, 0, len(ends))
+
+	start := 0
+	for _, end := range ends {
+		if end < 0 {
+			output = append(output, divider)
+			continue
+		}
+
+		output = append(output, frame[start:end])
+		start = end
 	}
 
 	return output
@@ -274,12 +320,14 @@ func (g *Grid) Each(fn func(row, col int, cell *Cell)) {
 // style falls back to a plain one, so a Grid built by hand still draws.
 func (g *Grid) style() *GridStyle {
 	if g.Style == nil {
-		return defaultStyle()
+		return &plainStyle
 	}
 	return g.Style
 }
 
-// defaultStyle: no dividers, but a column of space so values don't run together.
+// plainStyle: no dividers, but a column of space so values don't run together.
+var plainStyle = GridStyle{VerticalDivider: " "}
+
 func defaultStyle() *GridStyle {
 	return &GridStyle{VerticalDivider: " "}
 }
@@ -314,21 +362,22 @@ func (s *GridStyle) filler() string {
 	return s.HorizontalDivider
 }
 
-// dividerJoin is the bit of row divider that crosses a column gap. Sized to the
-// gap, or the two come out misaligned.
-func (s *GridStyle) dividerJoin(gapWidth int) string {
+// writeDividerJoin writes the bit of row divider that crosses a column gap.
+// Sized to the gap, or the two come out misaligned.
+func (s *GridStyle) writeDividerJoin(sb *strings.Builder, gapWidth int) {
 	if gapWidth <= 0 {
-		return ""
+		return
 	}
 	if s.Intersection == "" {
-		return strings.Repeat(s.filler(), gapWidth)
+		writeRepeat(sb, s.filler(), gapWidth)
+		return
 	}
 
 	left := (gapWidth - 1) / 2
 
-	return strings.Repeat(s.filler(), left) +
-		s.Intersection +
-		strings.Repeat(s.filler(), gapWidth-left-1)
+	writeRepeat(sb, s.filler(), left)
+	sb.WriteString(s.Intersection)
+	writeRepeat(sb, s.filler(), gapWidth-left-1)
 }
 
 // cellStyle lets the grid's style override the cursor highlight.
@@ -366,33 +415,75 @@ func setCellContent(cell *Cell, element any) {
 	cell.Child, cell.Value = nil, element
 }
 
-// padBlock fills a cell out to height rows of width columns.
-func padBlock(lines []string, height, width int, align Align) []string {
-	padded := make([]string, height)
-	for i := range height {
-		var line string
-		if i < len(lines) {
-			line = lines[i]
-		}
-		padded[i] = padLine(line, width, align)
+// dividerLine is the line that goes between two rows. It depends only on the
+// column widths, so a grid builds one and reuses it.
+func (s *GridStyle) dividerLine(colWidths []int, gaps []string) string {
+	filler := s.filler()
+
+	width := 0
+	for _, w := range colWidths {
+		width += w
+	}
+	for _, gap := range gaps {
+		width += VisibleWidth(gap)
 	}
 
-	return padded
+	var sb strings.Builder
+	sb.Grow(width * len(filler))
+
+	for c, w := range colWidths {
+		writeRepeat(&sb, filler, w)
+		if c < len(colWidths)-1 {
+			s.writeDividerJoin(&sb, VisibleWidth(gaps[c]))
+		}
+	}
+
+	return sb.String()
 }
 
-func padLine(line string, width int, align Align) string {
-	gap := width - VisibleWidth(line)
-	if gap <= 0 {
-		return line
+// writeCell writes one line of a cell: its style, the text padded out to width,
+// then a reset. Padding goes inside the style so the colour covers it.
+func writeCell(sb *strings.Builder, text string, textWidth, width int, align Align, style string) {
+	left, right := 0, 0
+	if gap := width - textWidth; gap > 0 {
+		switch align {
+		case AlignRight:
+			left = gap
+		case AlignCenter:
+			left = gap / 2
+			right = gap - left
+		default:
+			right = gap
+		}
 	}
 
-	switch align {
-	case AlignRight:
-		return strings.Repeat(" ", gap) + line
-	case AlignCenter:
-		left := gap / 2
-		return strings.Repeat(" ", left) + line + strings.Repeat(" ", gap-left)
-	default:
-		return line + strings.Repeat(" ", gap)
+	if style != "" {
+		sb.WriteString(style)
+	}
+
+	writeSpaces(sb, left)
+	sb.WriteString(text)
+	writeSpaces(sb, right)
+
+	if style != "" {
+		sb.WriteString(resetStyle)
+	}
+}
+
+func writeRepeat(sb *strings.Builder, s string, n int) {
+	for range n {
+		sb.WriteString(s)
+	}
+}
+
+const spaceRun = "                                                                "
+
+func writeSpaces(sb *strings.Builder, n int) {
+	for n > len(spaceRun) {
+		sb.WriteString(spaceRun)
+		n -= len(spaceRun)
+	}
+	if n > 0 {
+		sb.WriteString(spaceRun[:n])
 	}
 }

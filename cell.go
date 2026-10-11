@@ -2,6 +2,7 @@ package stgui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -50,19 +51,59 @@ func (c *Cell) StyleSeq() string {
 
 // content is the cell's lines, unstyled. empty stands in for an empty cell.
 func (c *Cell) content(empty string) []string {
-	var lines []string
+	return c.appendContent(nil, empty)
+}
 
+// appendContent appends the cell's unstyled lines to dst. Grids pass their frame
+// buffer, so a cell costs no allocation of its own.
+func (c *Cell) appendContent(dst []string, empty string) []string {
 	if c.Child != nil {
-		lines = c.Child.RenderLines()
-	} else if c.Value != nil {
-		lines = strings.Split(fmt.Sprint(c.Value), "\n")
+		lines := c.Child.RenderLines()
+		if len(lines) == 0 {
+			return append(dst, empty)
+		}
+
+		return append(dst, lines...)
 	}
 
-	if len(lines) == 0 {
-		lines = []string{empty}
+	if c.Value == nil {
+		return append(dst, empty)
 	}
 
-	return lines
+	return appendLines(dst, valueString(c.Value))
+}
+
+// valueString is fmt.Sprint for the types a cell usually holds, skipping the
+// reflection for them.
+func valueString(value any) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case int:
+		return strconv.Itoa(v)
+	case int32:
+		return strconv.Itoa(int(v))
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case bool:
+		return strconv.FormatBool(v)
+	}
+
+	return fmt.Sprint(value)
+}
+
+// appendLines splits s on newlines into dst, with nothing allocated for the
+// usual single-line value.
+func appendLines(dst []string, s string) []string {
+	for {
+		i := strings.IndexByte(s, '\n')
+		if i < 0 {
+			return append(dst, s)
+		}
+
+		dst = append(dst, s[:i])
+		s = s[i+1:]
+	}
 }
 
 func applyStyle(lines []string, style string) []string {
