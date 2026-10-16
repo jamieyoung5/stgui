@@ -43,6 +43,11 @@ func listenForInput(eventChan chan Event, r *bufio.Reader) {
 			return
 		}
 
+		if mouse, ok := parseMouse(string(key)); ok {
+			eventChan <- mouse
+			continue
+		}
+
 		eventChan <- KeyPressEvent{Key: key}
 	}
 }
