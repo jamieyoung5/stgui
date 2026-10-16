@@ -14,6 +14,19 @@ type Widget interface {
 	Select(cursor *Cursor, input Input) Action
 }
 
+// Hittable is a widget that can say which of its cells sits at a point, counted
+// in terminal cells from its own top left. Grids are, so containers are too.
+type Hittable interface {
+	CellAt(col, row int) (int, int, bool)
+}
+
+// placement is where the last frame put a widget, for working out what a click
+// landed on.
+type placement struct {
+	widget   Widget
+	col, row int
+}
+
 // Screen is one terminal-full: widgets laid out in rows, plus the cursor moving
 // through them.
 type Screen struct {
@@ -22,6 +35,9 @@ type Screen struct {
 	Cursor *Cursor
 
 	widgets [][]Widget
+
+	// placements from the last frame, for Hit.
+	placements []placement
 
 	// Scratch reused between frames, like Grid's.
 	blocks   [][]string
@@ -63,6 +79,7 @@ const rowSpacing = 4
 func (s *Screen) renderLines() []string {
 	// Frames are much the same height, so last one's is a good guess.
 	out := make([]string, 0, s.height)
+	s.placements = s.placements[:0]
 
 	for _, widgetRow := range s.widgets {
 		blocks, height := s.renderWidgets(widgetRow)
@@ -75,7 +92,9 @@ func (s *Screen) renderLines() []string {
 			out = append(out, "")
 		}
 
+		top := len(out)
 		out = s.appendSideBySide(out, blocks, height)
+		s.place(widgetRow, top)
 	}
 
 	s.height = len(out)
@@ -114,6 +133,7 @@ func (s *Screen) appendSideBySide(out []string, blocks [][]string, height int) [
 	// A row with one widget in it is already the lines we want, and there is
 	// nothing to its right to line up with.
 	if len(blocks) == 1 {
+		s.widths = s.widths[:0]
 		return append(out, blocks[0]...)
 	}
 
@@ -167,4 +187,45 @@ func (s *Screen) appendSideBySide(out []string, blocks [][]string, height int) [
 	}
 
 	return out
+}
+
+// place records where this frame put each widget of a row, so Hit can work back
+// from a point to a cell.
+func (s *Screen) place(widgets []Widget, top int) {
+	col, i := 0, 0
+
+	for _, widget := range widgets {
+		if widget == nil {
+			continue
+		}
+
+		s.placements = append(s.placements, placement{widget: widget, col: col, row: top})
+
+		// Widths are only measured when a row holds more than one widget.
+		if i < len(s.widths) {
+			col += s.widths[i] + rowSpacing
+		}
+
+		i++
+	}
+}
+
+// Hit is the cell at a point on the screen, counted in terminal cells from the
+// top left. It reports false when the point is on nothing that can be hit.
+//
+// It works off the last frame, so it means nothing until the screen has been
+// drawn once.
+func (s *Screen) Hit(col, row int) (Widget, int, int, bool) {
+	for _, p := range s.placements {
+		hittable, ok := p.widget.(Hittable)
+		if !ok || row < p.row || col < p.col {
+			continue
+		}
+
+		if r, c, ok := hittable.CellAt(col-p.col, row-p.row); ok {
+			return p.widget, r, c, true
+		}
+	}
+
+	return nil, 0, 0, false
 }

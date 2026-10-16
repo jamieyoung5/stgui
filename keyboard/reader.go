@@ -78,6 +78,12 @@ func ReadInput(reader *bufio.Reader, file *os.File) (Key, error) {
 			return cmd, nil
 		}
 
+		// A mouse report carries numbers, so no table can hold it. Read it
+		// whole and let the caller make sense of it.
+		if seq == mousePrefix {
+			return readMouse(reader, file, seq)
+		}
+
 		if ok := sequencesTrie.StartsWith(seq); !ok {
 			return Key(seq), nil
 		}
@@ -92,6 +98,29 @@ func ReadInput(reader *bufio.Reader, file *os.File) (Key, error) {
 		seq += string(nextRn)
 	}
 }
+
+// mousePrefix starts an SGR mouse report, which ends at an M or an m.
+const mousePrefix = "\x1b[<"
+
+func readMouse(reader *bufio.Reader, file *os.File, seq string) (Key, error) {
+	for range maxMouseSequence {
+		rn, err := readRuneWithDeadline(reader, file, keySequenceTimeout)
+		if err != nil {
+			return Key(seq), nil
+		}
+
+		seq += string(rn)
+
+		if rn == 'M' || rn == 'm' {
+			break
+		}
+	}
+
+	return Key(seq), nil
+}
+
+// maxMouseSequence caps the read so a malformed report can't spin.
+const maxMouseSequence = 16
 
 func readRuneWithDeadline(r *bufio.Reader, f *os.File, timeout time.Duration) (rune, error) {
 	// Optimization: If data is already in the buffer, read immediately.

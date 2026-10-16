@@ -487,3 +487,57 @@ func writeSpaces(sb *strings.Builder, n int) {
 		sb.WriteString(spaceRun[:n])
 	}
 }
+
+// CellAt is the cell at a point inside the grid, counted in terminal cells from
+// its top left. It reports false outside the grid and on a divider.
+//
+// It reads the last frame's measurements, so it means nothing until the grid has
+// been drawn once.
+func (g *Grid) CellAt(col, row int) (int, int, bool) {
+	if col < 0 || row < 0 || len(g.rowHeights) == 0 || len(g.colWidths) == 0 {
+		return 0, 0, false
+	}
+
+	style := g.style()
+
+	r, y := 0, row
+	for ; r < len(g.rowHeights); r++ {
+		if y < g.rowHeights[r] {
+			break
+		}
+
+		y -= g.rowHeights[r]
+
+		if r < len(g.rowHeights)-1 && style.drawsRowDivider(r) {
+			if y == 0 {
+				return 0, 0, false
+			}
+
+			y--
+		}
+	}
+
+	c, x := 0, col
+	for ; c < len(g.colWidths); c++ {
+		if x < g.colWidths[c] {
+			break
+		}
+
+		x -= g.colWidths[c]
+
+		if c < len(g.colWidths)-1 {
+			gap := VisibleWidth(g.gaps[c])
+			if x < gap {
+				return 0, 0, false
+			}
+
+			x -= gap
+		}
+	}
+
+	if r >= len(g.rowHeights) || c >= len(g.colWidths) {
+		return 0, 0, false
+	}
+
+	return r, c, true
+}

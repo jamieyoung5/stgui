@@ -22,6 +22,10 @@ const (
 	hideCursor  = "\033[?25l"
 	showCursor  = "\033[?25h"
 
+	// Button reporting, with coordinates that survive a wide terminal.
+	enableMouse  = "\033[?1000h\033[?1006h"
+	disableMouse = "\033[?1006l\033[?1000l"
+
 	// Room for a burst of events before Send blocks.
 	eventBuffer = 64
 )
@@ -39,6 +43,7 @@ type App struct {
 	// by default.
 	Bindings Bindings
 
+	mouse     bool
 	onEvent   EventHandler
 	eventChan chan events.Event
 	done      chan struct{}
@@ -62,6 +67,14 @@ func NewApp(screen *Screen) *App {
 		eventChan: make(chan events.Event, eventBuffer),
 		done:      make(chan struct{}),
 	}
+}
+
+// WithMouse asks the terminal to report clicks, which select whatever was
+// clicked on. Off by default: it is the terminal's own text selection that gets
+// taken over, so it has to be worth it.
+func (a *App) WithMouse() *App {
+	a.mouse = true
+	return a
 }
 
 // OnEvent sets the handler for events the app doesn't recognise. The screen is
@@ -157,6 +170,10 @@ func (a *App) Run() error {
 	}
 	defer a.restore(fd, oldState)
 
+	if a.mouse {
+		fmt.Print(enableMouse)
+	}
+
 	// Unblocks anything waiting in Send.
 	defer close(a.done)
 
@@ -171,6 +188,8 @@ func (a *App) Run() error {
 				return nil
 			}
 			a.handleInput(event.Key)
+		case events.MouseEvent:
+			a.handleMouse(event)
 		case events.ResizeEvent:
 			a.handleResize(event)
 		case events.ErrorEvent:
@@ -191,6 +210,10 @@ func (a *App) Run() error {
 // restore hands the terminal back: cursor visible, raw mode off, and parked below
 // the last frame so the shell prompt doesn't land on top of it.
 func (a *App) restore(fd int, oldState *term.State) {
+	if a.mouse {
+		fmt.Print(disableMouse)
+	}
+
 	fmt.Printf("\033[%d;1H%s\n", len(a.lastBuffer)+1, showCursor)
 	term.Restore(fd, oldState)
 }
@@ -233,6 +256,28 @@ func (a *App) readTerminalSize() {
 	if w, h, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
 		a.width, a.height = w, h
 	}
+}
+
+// handleMouse selects whatever was clicked on, as long as the cursor can reach
+// it. A click on another widget is ignored: one screen has one cursor.
+func (a *App) handleMouse(event events.MouseEvent) {
+	if !event.Pressed {
+		return
+	}
+
+	screen := a.Screens.Peek()
+	if screen == nil || screen.Cursor == nil {
+		return
+	}
+
+	widget, row, col, ok := screen.Hit(event.Col, event.Row)
+	if !ok || widget != screen.Cursor.widget {
+		return
+	}
+
+	screen.Cursor.MoveTo(row, col)
+	a.apply(screen.Cursor.Select(Input{Control: ControlSelect}))
+	a.Display()
 }
 
 // handleEvent passes an unrecognised event to OnEvent, if a handler is set.
